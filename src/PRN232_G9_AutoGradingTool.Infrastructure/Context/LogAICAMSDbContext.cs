@@ -20,14 +20,14 @@ public class PRN232_G9_AutoGradingToolDbContext : IdentityDbContext<AppUser, App
     {
         base.OnModelCreating(builder);
 
-        // Đổi tên bảng Identity
-        builder.Entity<AppUser>().ToTable("Users");
-        builder.Entity<AppRole>().ToTable("Roles");
-        builder.Entity<IdentityUserRole<Guid>>().ToTable("UserRoles");
-        builder.Entity<IdentityUserClaim<Guid>>().ToTable("UserClaims");
-        builder.Entity<IdentityUserLogin<Guid>>().ToTable("UserLogins");
-        builder.Entity<IdentityUserToken<Guid>>().ToTable("UserTokens");
-        builder.Entity<IdentityRoleClaim<Guid>>().ToTable("RoleClaims");
+        // Đổi tên bảng Identity sang lowercase để nhất quán với UseSnakeCaseNamingConvention()
+        builder.Entity<AppUser>().ToTable("users");
+        builder.Entity<AppRole>().ToTable("roles");
+        builder.Entity<IdentityUserRole<Guid>>().ToTable("user_roles");
+        builder.Entity<IdentityUserClaim<Guid>>().ToTable("user_claims");
+        builder.Entity<IdentityUserLogin<Guid>>().ToTable("user_logins");
+        builder.Entity<IdentityUserToken<Guid>>().ToTable("user_tokens");
+        builder.Entity<IdentityRoleClaim<Guid>>().ToTable("role_claims");
 
         // AppUser
         builder.Entity<AppUser>(entity =>
@@ -38,7 +38,7 @@ public class PRN232_G9_AutoGradingToolDbContext : IdentityDbContext<AppUser, App
             // Performance indexes
             entity.HasIndex(x => x.Status);
             entity.HasIndex(x => x.JoiningAt);
-            entity.HasIndex(x => x.LastLoginAt).HasFilter("\"LastLoginAt\" IS NOT NULL");
+            entity.HasIndex(x => x.LastLoginAt).HasFilter("\"last_login_at\" IS NOT NULL");
             entity.HasIndex(x => new { x.Status, x.JoiningAt });
         });
 

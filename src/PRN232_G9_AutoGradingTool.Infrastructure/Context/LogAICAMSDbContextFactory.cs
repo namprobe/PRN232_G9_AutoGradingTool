@@ -42,7 +42,15 @@ public class PRN232_G9_AutoGradingToolDbContextFactory : IDesignTimeDbContextFac
                     maxRetryDelay: TimeSpan.FromSeconds(30),
                     errorCodesToAdd: null);
                 npgsqlOptions.MigrationsAssembly(typeof(PRN232_G9_AutoGradingToolDbContext).Assembly.FullName);
-            });
+
+                // CRITICAL: Use snake_case for migrations history table
+                // This ensures compatibility with UseSnakeCaseNamingConvention()
+                npgsqlOptions.MigrationsHistoryTable("__ef_migrations_history");
+            })
+            // CRITICAL: Apply snake_case naming convention to all tables and columns
+            // This maps PascalCase C# properties to snake_case PostgreSQL columns
+            // Example: AppUser.FirstName -> app_users.first_name
+            .UseSnakeCaseNamingConvention();
 
         return new PRN232_G9_AutoGradingToolDbContext(optionsBuilder.Options);
     }

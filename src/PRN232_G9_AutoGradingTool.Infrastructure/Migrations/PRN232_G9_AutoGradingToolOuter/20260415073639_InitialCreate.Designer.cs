@@ -11,7 +11,7 @@ using PRN232_G9_AutoGradingTool.Infrastructure.Context;
 namespace PRN232_G9_AutoGradingTool.Infrastructure.Migrations.PRN232_G9_AutoGradingToolOuter
 {
     [DbContext(typeof(PRN232_G9_AutoGradingToolOuterDbContext))]
-    [Migration("20260415063059_InitialCreate")]
+    [Migration("20260415073639_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
