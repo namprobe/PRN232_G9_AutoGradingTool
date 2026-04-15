@@ -1,3 +1,4 @@
+import type { ReactElement } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 
@@ -15,7 +16,7 @@ type NavItem = {
   to: string;
   end?: boolean;
   label: string;
-  icon: () => JSX.Element;
+  icon: () => ReactElement;
   /** Khi có: dùng thay vì mặc định của NavLink (vd highlight cả chi tiết bài nộp) */
   isActive?: (pathname: string) => boolean;
 };
@@ -57,6 +58,7 @@ export function AppShell() {
               key={to}
               to={to}
               end={end}
+              title={label}
               className={({ isActive }) => {
                 const on = customActive ? customActive(pathname) : isActive;
                 return "ag-navlink" + (on ? " ag-navlink--active" : "");
