@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  
+  <!-- FluentValidation Built-in Messages - Vietnamese -->
+  <data name="NotEmpty" xml:space="preserve">
+    <value>'{PropertyName}' không được để trống</value>
+  </data>
+  <data name="EmailAddress" xml:space="preserve">
+    <value>'{PropertyName}' không phải là địa chỉ email hợp lệ</value>
+  </data>
+  <data name="MinimumLength" xml:space="preserve">
+    <value>'{PropertyName}' phải có ít nhất {MinLength} ký tự</value>
+  </data>
+  <data name="MaximumLength" xml:space="preserve">
+    <value>'{PropertyName}' không được vượt quá {MaxLength} ký tự</value>
+  </data>
+  <data name="Equal" xml:space="preserve">
+    <value>'{PropertyName}' phải bằng '{ComparisonValue}'</value>
+  </data>
+  <data name="NotEqual" xml:space="preserve">
+    <value>'{PropertyName}' không được bằng '{ComparisonValue}'</value>
+  </data>
+  <data name="GreaterThan" xml:space="preserve">
+    <value>'{PropertyName}' phải lớn hơn '{ComparisonValue}'</value>
+  </data>
+  <data name="LessThan" xml:space="preserve">
+    <value>'{PropertyName}' phải nhỏ hơn '{ComparisonValue}'</value>
+  </data>
+  
+  <!-- Custom Validation Messages - Vietnamese -->
+  <data name="Email_Required" xml:space="preserve">
+    <value>Email là bắt buộc</value>
+  </data>
+  <data name="Email_Invalid" xml:space="preserve">
+    <value>Email không hợp lệ</value>
+  </data>
+  <data name="Password_Required" xml:space="preserve">
+    <value>Mật khẩu là bắt buộc</value>
+  </data>
+  <data name="Password_TooShort" xml:space="preserve">
+    <value>Mật khẩu phải có ít nhất {0} ký tự</value>
+  </data>
+  <data name="Password_MustMatch" xml:space="preserve">
+    <value>Mật khẩu phải khớp nhau</value>
+  </data>
+  <data name="ConfirmPassword_Required" xml:space="preserve">
+    <value>Xác nhận mật khẩu là bắt buộc</value>
+  </data>
+  <data name="File_Required" xml:space="preserve">
+    <value>Tệp là bắt buộc</value>
+  </data>
+  <data name="File_TooLarge" xml:space="preserve">
+    <value>Kích thước tệp không được vượt quá {0} MB</value>
+  </data>
+  <data name="File_InvalidType" xml:space="preserve">
+    <value>Loại tệp không hợp lệ. Các loại được phép: {0}</value>
+  </data>
+  <data name="Field_Required" xml:space="preserve">
+    <value>{0} là bắt buộc</value>
+  </data>
+  <data name="ValidationFailure_OneOrMore" xml:space="preserve">
+    <value>Một hoặc nhiều lỗi xác thực đã xảy ra</value>
+  </data>
+</root>

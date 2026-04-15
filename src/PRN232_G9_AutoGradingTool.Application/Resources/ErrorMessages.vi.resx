@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  
+  <!-- ErrorCodeEnum Values - Vietnamese -->
+  <data name="ErrorCode_Success" xml:space="preserve">
+    <value>Thành công</value>
+  </data>
+  <data name="ErrorCode_Unauthorized" xml:space="preserve">
+    <value>Xác thực thất bại</value>
+  </data>
+  <data name="ErrorCode_Forbidden" xml:space="preserve">
+    <value>Truy cập bị từ chối</value>
+  </data>
+  <data name="ErrorCode_InvalidCredentials" xml:space="preserve">
+    <value>Tên đăng nhập hoặc mật khẩu không đúng</value>
+  </data>
+  <data name="ErrorCode_TokenExpired" xml:space="preserve">
+    <value>Phiên làm việc đã hết hạn</value>
+  </data>
+  <data name="ErrorCode_InvalidToken" xml:space="preserve">
+    <value>Token xác thực không hợp lệ</value>
+  </data>
+  <data name="ErrorCode_ValidationFailed" xml:space="preserve">
+    <value>Xác thực thất bại</value>
+  </data>
+  <data name="ErrorCode_InvalidInput" xml:space="preserve">
+    <value>Dữ liệu đầu vào không hợp lệ</value>
+  </data>
+  <data name="ErrorCode_DuplicateEntry" xml:space="preserve">
+    <value>Dữ liệu đã tồn tại</value>
+  </data>
+  <data name="ErrorCode_InvalidOperation" xml:space="preserve">
+    <value>Thao tác không hợp lệ</value>
+  </data>
+  <data name="ErrorCode_TooManyRequests" xml:space="preserve">
+    <value>Quá nhiều yêu cầu</value>
+  </data>
+  <data name="ErrorCode_NotFound" xml:space="preserve">
+    <value>Không tìm thấy tài nguyên</value>
+  </data>
+  <data name="ErrorCode_BusinessRuleViolation" xml:space="preserve">
+    <value>Vi phạm quy tắc nghiệp vụ</value>
+  </data>
+  <data name="ErrorCode_InsufficientPermissions" xml:space="preserve">
+    <value>Không đủ quyền truy cập</value>
+  </data>
+  <data name="ErrorCode_ResourceConflict" xml:space="preserve">
+    <value>Xung đột tài nguyên</value>
+  </data>
+  <data name="ErrorCode_InternalError" xml:space="preserve">
+    <value>Đã xảy ra lỗi máy chủ nội bộ</value>
+  </data>
+  <data name="ErrorCode_DatabaseError" xml:space="preserve">
+    <value>Thao tác cơ sở dữ liệu thất bại</value>
+  </data>
+  <data name="ErrorCode_ExternalServiceError" xml:space="preserve">
+    <value>Dịch vụ bên ngoài không khả dụng</value>
+  </data>
+  <data name="ErrorCode_FileUploadFailed" xml:space="preserve">
+    <value>Tải tệp lên thất bại</value>
+  </data>
+  <data name="ErrorCode_FileNotFound" xml:space="preserve">
+    <value>Không tìm thấy tệp</value>
+  </data>
+  <data name="ErrorCode_StorageError" xml:space="preserve">
+    <value>Lỗi lưu trữ</value>
+  </data>
+  <data name="ErrorCode_InvalidFileType" xml:space="preserve">
+    <value>Loại tệp không hợp lệ</value>
+  </data>
+  <data name="ErrorCode_FileSizeTooLarge" xml:space="preserve">
+    <value>Kích thước tệp quá lớn</value>
+  </data>
+  <data name="ErrorCode_FeatureDisabled" xml:space="preserve">
+    <value>Tính năng hiện đang bị vô hiệu hóa</value>
+  </data>
+  <data name="ErrorCode_InvalidResponse" xml:space="preserve">
+    <value>Nhận được phản hồi không hợp lệ</value>
+  </data>
+  <data name="ErrorCode_EmailSendFailed" xml:space="preserve">
+    <value>Gửi email thất bại</value>
+  </data>
+  <data name="ErrorCode_EmailNotConfirmed" xml:space="preserve">
+    <value>Email chưa được xác nhận</value>
+  </data>
+  <data name="ErrorCode_EmailAlreadyConfirmed" xml:space="preserve">
+    <value>Email đã được xác nhận</value>
+  </data>
+  <data name="ErrorCode_InvalidEmailToken" xml:space="preserve">
+    <value>Token email không hợp lệ</value>
+  </data>
+  
+  <!-- Generic Exception Messages - Vietnamese -->
+  <data name="Exception_ArgumentException" xml:space="preserve">
+    <value>Dữ liệu đầu vào không hợp lệ</value>
+  </data>
+  <data name="Exception_UnauthorizedAccess" xml:space="preserve">
+    <value>Xác thực thất bại</value>
+  </data>
+  <data name="Exception_ForbiddenAccess" xml:space="preserve">
+    <value>Truy cập bị từ chối</value>
+  </data>
+  <data name="Exception_KeyNotFound" xml:space="preserve">
+    <value>Không tìm thấy tài nguyên</value>
+  </data>
+  <data name="Exception_InvalidOperation" xml:space="preserve">
+    <value>Thao tác không hợp lệ</value>
+  </data>
+  <data name="Exception_DatabaseUnavailable" xml:space="preserve">
+    <value>Dịch vụ cơ sở dữ liệu tạm thời không khả dụng</value>
+  </data>
+  <data name="Exception_DatabaseAuthFailed" xml:space="preserve">
+    <value>Xác thực cơ sở dữ liệu thất bại</value>
+  </data>
+  <data name="Exception_DataConstraintViolation" xml:space="preserve">
+    <value>Thao tác vi phạm ràng buộc dữ liệu</value>
+  </data>
+  <data name="Exception_DatabaseTimeout" xml:space="preserve">
+    <value>Yêu cầu cơ sở dữ liệu hết thời gian</value>
+  </data>
+  <data name="Exception_DataUpdateConflict" xml:space="preserve">
+    <value>Xảy ra xung đột cập nhật dữ liệu</value>
+  </data>
+  <data name="Exception_Timeout" xml:space="preserve">
+    <value>Yêu cầu hết thời gian - vui lòng thử lại sau</value>
+  </data>
+  <data name="Exception_FileNotFound" xml:space="preserve">
+    <value>Không tìm thấy tệp</value>
+  </data>
+  <data name="Exception_DirectoryNotFound" xml:space="preserve">
+    <value>Không tìm thấy thư mục</value>
+  </data>
+  <data name="Exception_ExternalServiceUnavailable" xml:space="preserve">
+    <value>Dịch vụ bên ngoài không khả dụng</value>
+  </data>
+  <data name="Exception_FileAccessDenied" xml:space="preserve">
+    <value>Truy cập tệp bị từ chối</value>
+  </data>
+  <data name="Exception_UserNotFound" xml:space="preserve">
+    <value>Không tìm thấy người dùng</value>
+  </data>
+  <data name="Exception_UserNotActive" xml:space="preserve">
+    <value>Người dùng không hoạt động</value>
+  </data>
+  <data name="Exception_UserHasNoRoles" xml:space="preserve">
+    <value>Người dùng không có vai trò</value>
+  </data>
+  <data name="Exception_PhoneNumberExists" xml:space="preserve">
+    <value>Số điện thoại đã tồn tại</value>
+  </data>
+</root>

@@ -1,0 +1,74 @@
+/* Custom styling for main tags */
+.opblock-tag-section h3.opblock-tag span:nth-child(1) {
+    font-size: 16px;
+}
+
+/* Main tags: CMS, Public */
+.opblock-tag-section h3.opblock-tag[data-tag="CMS"] span,
+.opblock-tag-section h3.opblock-tag[data-tag="Public"] span {
+    font-size: 20px !important;
+    font-weight: bold !important;
+    color: #2c3e50 !important; 
+    background-color: #f8f9fa !important;
+    padding: 8px 16px !important;
+    border-radius: 4px !important;
+}
+
+/* CMS tag */
+.opblock-tag-section h3.opblock-tag[data-tag="CMS"] span {
+    border-left: 5px solid #e74c3c !important;
+    color: #e74c3c !important;
+}
+
+/* Public tag */
+.opblock-tag-section h3.opblock-tag[data-tag="Public"] span {
+    border-left: 5px solid #2ecc71 !important;
+    color: #2ecc71 !important;
+}
+
+/* Sub-tags: CMS_Auth, Public_Auth, etc. */
+.opblock-tag-section h3.opblock-tag[data-tag*="_"] {
+    margin-left: 20px !important;
+    position: relative;
+}
+
+/* Improved styling for sub-tags */
+.opblock-tag-section h3.opblock-tag[data-tag*="_"] span {
+    font-size: 16px !important;
+    font-weight: bold !important;
+    padding: 5px 10px !important;
+    border-radius: 3px !important;
+    background-color: #f8f9fa !important;
+}
+
+/* All CMS sub-tags */
+.opblock-tag-section h3.opblock-tag[data-tag^="CMS_"] span {
+    border-left: 3px solid #e74c3c !important;
+    color: #c0392b !important;
+}
+
+/* All Public sub-tags */
+.opblock-tag-section h3.opblock-tag[data-tag^="Public_"] span {
+    border-left: 3px solid #2ecc71 !important;
+    color: #27ae60 !important;
+}
+
+/* Add arrow indicator for subtags */
+.opblock-tag-section h3.opblock-tag[data-tag*="_"]::before {
+    content: "→";
+    position: absolute;
+    left: 5px;
+    color: #95a5a6;
+}
+
+/* Improve tag sections spacing */
+.opblock-tag-section {
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+/* Add some spacing between endpoints */
+.opblock {
+    margin: 0 0 10px 0;
+} 

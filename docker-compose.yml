@@ -1,0 +1,111 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: autogradingtool-postgres
+    env_file:
+      # Load environment variables from .env file
+      # You can override values by:
+      # 1. Setting shell environment variables before running docker-compose
+      # 2. Creating .env.local or .env.docker files (optional, only if needed)
+      - .env
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - ./docker/init:/docker-entrypoint-initdb.d:ro
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB} || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - autogradingtool-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: autogradingtool-redis
+    env_file:
+      - .env
+    command: >
+      sh -c "
+      if [ -n \"$$REDIS_PASSWORD\" ]; then
+        redis-server --requirepass \"$$REDIS_PASSWORD\"
+      else
+        redis-server
+      fi
+      "
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: >
+        sh -c "
+        if [ -n \"$$REDIS_PASSWORD\" ]; then
+          redis-cli -a \"$$REDIS_PASSWORD\" ping || exit 1
+        else
+          redis-cli ping || exit 1
+        fi
+        "
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - autogradingtool-network
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: autogradingtool-pgadmin
+    env_file:
+      - .env
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - autogradingtool-network
+
+  autogradingtool-api:
+    build:
+      context: .
+      dockerfile: ./src/PRN232_G9_AutoGradingTool.API/Dockerfile
+      # No build args needed - Resources are handled in Dockerfile
+      # The Dockerfile creates a timestamp marker file on every build,
+      # ensuring Resources files are always fresh (no cache)
+    container_name: autogradingtool-api
+    env_file:
+      - .env
+    environment:
+      # Application Server Configuration
+      # Override via shell: export ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Development}
+      # All other configuration (ConnectionStrings, JWT, etc.) loaded from .env file
+      # You can override any variable by setting it in your shell before running docker-compose
+    ports:
+      - "${API_PORT:-5000}:80"
+    volumes:
+      # Persist logs directory - application logs will not be lost on rebuild
+      # Mounted to logs_data named volume at runtime
+      - logs_data:/app/Logs
+      # Persist uploads directory - files will not be lost on rebuild
+      # Host directory ./uploads maps to /app/wwwroot/uploads in container
+      - ./uploads:/app/wwwroot/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - autogradingtool-network
+
+volumes:
+  postgres_data:
+  redis_data:
+  logs_data:
+
+networks:
+  autogradingtool-network:
+    driver: bridge

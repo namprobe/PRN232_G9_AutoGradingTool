@@ -1,0 +1,16 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\PRN232_G9_AutoGradingTool.Domain\PRN232_G9_AutoGradingTool.Domain.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <!-- Resource files (.resx) are automatically included by .NET SDK -->
+  <!-- They will be built into satellite assemblies automatically -->
+
+</Project>
