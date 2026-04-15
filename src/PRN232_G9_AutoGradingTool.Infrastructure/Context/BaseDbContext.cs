@@ -76,5 +76,35 @@ public static class BaseEntityConfigurationHelper
         modelBuilder.Entity(entityType)
             .Property<EntityStatusEnum>("Status")
             .HasConversion<int>();
+
+        // CRITICAL: Index on IsDeleted for Global Query Filter Performance
+        // Global filter applies "WHERE is_deleted = false" on all queries
+        // This index significantly improves query performance
+        modelBuilder.Entity(entityType)
+            .HasIndex("IsDeleted")
+            .HasDatabaseName($"ix_{entityType.Name.ToLower()}_is_deleted");
+
+        // Index on Status for common filtering
+        modelBuilder.Entity(entityType)
+            .HasIndex("Status")
+            .HasDatabaseName($"ix_{entityType.Name.ToLower()}_status");
+
+        // Composite index for Status + IsDeleted (common query pattern)
+        modelBuilder.Entity(entityType)
+            .HasIndex("Status", "IsDeleted")
+            .HasDatabaseName($"ix_{entityType.Name.ToLower()}_status_is_deleted");
+
+        // IMPORTANT: Index on UpdatedAt for "Recently Modified" queries
+        // Most list views show recently updated items, not just newly created
+        // This is more relevant than CreatedAt for operational dashboards
+        modelBuilder.Entity(entityType)
+            .HasIndex("UpdatedAt")
+            .HasDatabaseName($"ix_{entityType.Name.ToLower()}_updated_at");
+
+        // Composite index for recent active items (very common query pattern)
+        // Usage: Get active non-deleted items sorted by last update
+        modelBuilder.Entity(entityType)
+            .HasIndex("IsDeleted", "Status", "UpdatedAt")
+            .HasDatabaseName($"ix_{entityType.Name.ToLower()}_is_deleted_status_updated_at");
     }
 }

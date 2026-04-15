@@ -40,13 +40,22 @@ public static class InfrastructureDependencyInjection
         }
 
         // Configure database contexts
+        // IMPORTANT: snake_case naming convention is applied for PostgreSQL
+        // - C# entities: PascalCase (AppUser, FirstName)
+        // - Database: snake_case (app_users, first_name)
         services.AddDbContextPool<PRN232_G9_AutoGradingToolDbContext>(options =>
         {
             options.UseNpgsql(connectionString, npgsql =>
             {
                 npgsql.MigrationsAssembly(typeof(PRN232_G9_AutoGradingToolDbContext).Assembly.FullName);
                 npgsql.CommandTimeout(30);
-            });
+
+                // CRITICAL: Use snake_case for migrations history table
+                // This ensures compatibility with UseSnakeCaseNamingConvention()
+                npgsql.MigrationsHistoryTable("__ef_migrations_history");
+            })
+            // CRITICAL: Apply snake_case naming convention to all tables and columns
+            .UseSnakeCaseNamingConvention();
             options.ConfigureWarnings(warnings =>
                 warnings.Ignore(CoreEventId.FirstWithoutOrderByAndFilterWarning));
         });
@@ -61,7 +70,12 @@ public static class InfrastructureDependencyInjection
                 {
                     npgsql.MigrationsAssembly(typeof(PRN232_G9_AutoGradingToolOuterDbContext).Assembly.FullName);
                     npgsql.CommandTimeout(30);
-                });
+
+                    // CRITICAL: Use snake_case for migrations history table
+                    npgsql.MigrationsHistoryTable("__ef_migrations_history");
+                })
+                // CRITICAL: Apply snake_case naming convention to all tables and columns
+                .UseSnakeCaseNamingConvention();
             });
         }
         // Map DbContext for services that depend on base DbContext (e.g., UnitOfWork)
