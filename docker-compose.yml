@@ -67,6 +67,22 @@ services:
     networks:
       - autogradingtool-network
 
+  # FE: container riêng, cùng stack/network; /api được nginx proxy sang autogradingtool-api
+  autogradingtool-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ""
+    container_name: autogradingtool-frontend
+    ports:
+      - "${FRONTEND_PORT:-5173}:80"
+    depends_on:
+      autogradingtool-api:
+        condition: service_started
+    networks:
+      - autogradingtool-network
+
   autogradingtool-api:
     build:
       context: .
