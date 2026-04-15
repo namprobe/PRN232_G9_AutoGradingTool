@@ -238,13 +238,15 @@ cd PRN232_G9_AutoGradingTool
 cp .env.example .env
 # Chỉnh sửa .env nếu cần (mặc định đã chạy được với Docker)
 
-# 3. Khởi động toàn bộ stack
-docker compose up -d
+# 3. Build image và khởi động toàn bộ stack
+docker compose up --build -d
 
 # 4. Kiểm tra API
 # Swagger: http://localhost:5000/swagger
 # Health:  http://localhost:5000/health
 ```
+
+> `--build` bắt buộc phải có ở lần đầu chạy và mỗi khi thay đổi code — không có flag này Docker sẽ không build image mới.
 
 > Khi container API khởi động ở môi trường `Development`, migrations và seed dữ liệu được **tự động apply** — không cần thao tác thêm.
 
@@ -254,10 +256,18 @@ docker compose up -d
 
 > Toàn bộ infrastructure (PostgreSQL, Redis, pgAdmin) và API đều được container hóa.
 
-### Khởi động toàn bộ stack
+### Lần đầu chạy / Sau khi thay đổi code
 
 ```bash
 # Đảm bảo .env đã được tạo và DB_HOST=postgres
+# --build là bắt buộc để build Docker image từ source code
+docker compose up --build -d
+```
+
+### Chạy lại (không có thay đổi code)
+
+```bash
+# Chỉ dùng khi image đã được build trước đó và code không thay đổi
 docker compose up -d
 ```
 
@@ -277,12 +287,6 @@ docker compose down
 
 ```bash
 docker compose down -v
-```
-
-### Rebuild image sau khi thay đổi code
-
-```bash
-docker compose up -d --build
 ```
 
 ### Các service và port mặc định
