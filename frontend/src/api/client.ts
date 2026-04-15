@@ -2,11 +2,14 @@ import type { ApiResult } from "./types";
 
 const baseUrl = (): string => {
   const u = import.meta.env.VITE_API_BASE_URL;
-  if (!u) {
+  // Build Docker: VITE_API_BASE_URL="" → gọi tương đối /api... (nginx proxy cùng compose)
+  if (u === "") return "";
+  if (u === undefined || u === null) {
+    if (import.meta.env.PROD) return "";
     console.warn("VITE_API_BASE_URL chưa set — dùng http://localhost:5000");
     return "http://localhost:5000";
   }
-  return u.replace(/\/$/, "");
+  return String(u).replace(/\/$/, "");
 };
 
 export async function apiFetch<T>(
