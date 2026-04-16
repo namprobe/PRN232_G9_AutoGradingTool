@@ -183,6 +183,9 @@ exam.SoftDeleteEntity(userId);
 await _unitOfWork.SaveChangesAsync(cancellationToken);
 ```
 
+> **Global Query Filter**: `BaseDbContext` đã cấu hình `HasQueryFilter(e => e.IsDeleted == false)` cho mọi entity kế thừa `BaseEntity`. Mọi query qua Repository sẽ tự động bỏ qua bản ghi đã soft delete — **không cần viết `predicate: e => e.IsDeleted == false` thủ công**.  
+> Nếu cần truy vấn cả bản ghi đã xóa, dùng `IgnoreQueryFilters()` trực tiếp trên `IQueryable`.
+
 ---
 
 ## 5. Generic Repository & Unit of Work
@@ -252,9 +255,10 @@ var exam = await _unitOfWork.Repository<Exam>()
 if (exam == null) throw new NotFoundException(...);
 
 // READ (paged list)
+// ⚠️ Không cần predicate IsDeleted — global query filter trong BaseDbContext đã tự lọc
 var (items, total) = await _unitOfWork.Repository<Exam>()
     .GetPagedAsync(pageNumber: page, pageSize: pageSize,
-        predicate: e => e.IsDeleted == false,
+        predicate: null,  // hoặc điều kiện lọc khác nếu cần, VD: e => e.Status == EntityStatusEnum.Active
         orderBy: e => e.CreatedAt, isAscending: false,
         queryCustomizer: null, includes: null,
         cancellationToken: cancellationToken);
