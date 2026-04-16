@@ -92,7 +92,10 @@ export function LoginPage() {
             </button>
           </form>
 
-          <p className="ag-auth__fineprint">© PRN232 G9 — giao diện P4, API nối dần theo tiến độ backend.</p>
+          <p className="ag-auth__fineprint">
+            © PRN232 G9 — nếu <code className="ag-code ag-code--sm">VITE_USE_API_MOCK=true</code> thì đăng nhập bất kỳ
+            email/mật khẩu hợp lệ đều vào được (chỉ để demo UI).
+          </p>
         </div>
       </div>
     </div>

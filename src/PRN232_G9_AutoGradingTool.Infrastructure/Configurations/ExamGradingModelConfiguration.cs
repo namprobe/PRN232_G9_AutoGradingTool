@@ -1,0 +1,99 @@
+using Microsoft.EntityFrameworkCore;
+using PRN232_G9_AutoGradingTool.Domain.Entities;
+using PRN232_G9_AutoGradingTool.Domain.Enums;
+
+namespace PRN232_G9_AutoGradingTool.Infrastructure.Configurations;
+
+public static class ExamGradingModelConfiguration
+{
+    public static void ConfigureExamGrading(this ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<Semester>(e =>
+        {
+            e.ToTable("semesters");
+            e.Property(x => x.Code).HasMaxLength(64).IsRequired();
+            e.Property(x => x.Name).HasMaxLength(256).IsRequired();
+            e.HasIndex(x => x.Code).IsUnique();
+        });
+
+        modelBuilder.Entity<ExamSession>(e =>
+        {
+            e.ToTable("exam_sessions");
+            e.Property(x => x.Code).HasMaxLength(64).IsRequired();
+            e.Property(x => x.Title).HasMaxLength(512).IsRequired();
+            e.Property(x => x.ScheduledAtUtc).HasColumnType("timestamp with time zone");
+            e.HasOne(x => x.Semester).WithMany(x => x.ExamSessions).HasForeignKey(x => x.SemesterId)
+                .OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(x => new { x.SemesterId, x.Code }).IsUnique();
+        });
+
+        modelBuilder.Entity<ExamTopic>(e =>
+        {
+            e.ToTable("exam_topics");
+            e.Property(x => x.Title).HasMaxLength(256).IsRequired();
+            e.HasOne(x => x.ExamSession).WithMany(x => x.Topics).HasForeignKey(x => x.ExamSessionId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ExamQuestion>(e =>
+        {
+            e.ToTable("exam_questions");
+            e.Property(x => x.Label).HasMaxLength(16).IsRequired();
+            e.Property(x => x.Title).HasMaxLength(512).IsRequired();
+            e.Property(x => x.MaxScore).HasPrecision(9, 2);
+            e.HasOne(x => x.ExamTopic).WithMany(x => x.Questions).HasForeignKey(x => x.ExamTopicId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ExamTestCase>(e =>
+        {
+            e.ToTable("exam_test_cases");
+            e.Property(x => x.Name).HasMaxLength(256).IsRequired();
+            e.Property(x => x.MaxPoints).HasPrecision(9, 2);
+            e.HasOne(x => x.ExamQuestion).WithMany(x => x.TestCases).HasForeignKey(x => x.ExamQuestionId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ExamSubmission>(e =>
+        {
+            e.ToTable("exam_submissions");
+            e.Property(x => x.StudentCode).HasMaxLength(32).IsRequired();
+            e.Property(x => x.StudentName).HasMaxLength(256);
+            e.Property(x => x.Q1ZipRelativePath).HasMaxLength(1024);
+            e.Property(x => x.Q2ZipRelativePath).HasMaxLength(1024);
+            e.Property(x => x.TotalScore).HasPrecision(9, 2);
+            e.Property(x => x.SubmittedAtUtc).HasColumnType("timestamp with time zone");
+            e.Property(x => x.WorkflowStatus).HasColumnName("workflow_status").HasConversion<int>();
+            e.HasOne(x => x.ExamSession).WithMany(x => x.Submissions).HasForeignKey(x => x.ExamSessionId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => new { x.ExamSessionId, x.StudentCode });
+        });
+
+        modelBuilder.Entity<ExamQuestionScore>(e =>
+        {
+            e.ToTable("exam_question_scores");
+            e.Property(x => x.Score).HasPrecision(9, 2);
+            e.Property(x => x.MaxScore).HasPrecision(9, 2);
+            e.Property(x => x.Summary).HasMaxLength(2000);
+            e.HasOne(x => x.ExamSubmission).WithMany(x => x.QuestionScores).HasForeignKey(x => x.ExamSubmissionId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.ExamQuestion).WithMany(x => x.QuestionScores).HasForeignKey(x => x.ExamQuestionId)
+                .OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(x => new { x.ExamSubmissionId, x.ExamQuestionId }).IsUnique();
+        });
+
+        modelBuilder.Entity<ExamTestCaseScore>(e =>
+        {
+            e.ToTable("exam_test_case_scores");
+            e.Property(x => x.PointsEarned).HasPrecision(9, 2);
+            e.Property(x => x.MaxPoints).HasPrecision(9, 2);
+            e.Property(x => x.Message).HasMaxLength(4000);
+            e.Property(x => x.Outcome).HasConversion<int>();
+            e.HasOne(x => x.ExamSubmission).WithMany(x => x.TestCaseScores).HasForeignKey(x => x.ExamSubmissionId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.ExamTestCase).WithMany(x => x.Scores).HasForeignKey(x => x.ExamTestCaseId)
+                .OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(x => new { x.ExamSubmissionId, x.ExamTestCaseId }).IsUnique();
+        });
+    }
+}

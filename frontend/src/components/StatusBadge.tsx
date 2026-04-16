@@ -1,4 +1,4 @@
-type FlowStatus = "pending" | "grading" | "graded" | "error";
+export type FlowStatus = "pending" | "grading" | "graded" | "error";
 
 const config: Record<
   FlowStatus,
@@ -15,7 +15,7 @@ export function StatusBadge({ status }: { status: FlowStatus }) {
   return <span className={c.className}>{c.label}</span>;
 }
 
-type SessionStatus = "draft" | "active" | "closed";
+export type SessionStatus = "draft" | "active" | "closed";
 
 const sessionCfg: Record<SessionStatus, { className: string; label: string }> = {
   draft: { className: "ag-badge ag-badge--muted", label: "Nháp" },

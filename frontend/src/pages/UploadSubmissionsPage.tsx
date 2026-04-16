@@ -2,16 +2,22 @@ import type { DragEvent } from "react";
 import { FormEvent, useCallback, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
-import { baseUrl } from "../api/client";
+import { createSubmissionZip } from "../api/gradingApi";
+import { DEMO_EXAM_SESSION_ID } from "../api/gradingMockData";
+import { useApiMock } from "../config/env";
 
 type Slot = "q1" | "q2";
 
 export function UploadSubmissionsPage() {
   const { token } = useAuth();
+  const mock = useApiMock();
   const [q1, setQ1] = useState<File | null>(null);
   const [q2, setQ2] = useState<File | null>(null);
+  const [studentCode, setStudentCode] = useState("HE199999");
+  const [studentName, setStudentName] = useState("");
   const [dragOver, setDragOver] = useState<Slot | null>(null);
   const [msg, setMsg] = useState<{ type: "ok" | "err" | "info"; text: string } | null>(null);
+  const [sending, setSending] = useState(false);
 
   const setFile = (slot: Slot, file: File | null) => {
     if (slot === "q1") setQ1(file);
@@ -31,16 +37,37 @@ export function UploadSubmissionsPage() {
     setMsg(null);
   }, []);
 
-  function onSubmit(e: FormEvent) {
+  async function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (!q1 || !q2) {
       setMsg({ type: "err", text: "Vui lòng chọn đủ hai file zip cho Q1 và Q2." });
       return;
     }
-    const api = baseUrl() || window.location.origin;
+    const code = studentCode.trim();
+    if (!code) {
+      setMsg({ type: "err", text: "MSSV (studentCode) bắt buộc." });
+      return;
+    }
+    setSending(true);
+    setMsg(null);
+    const fd = new FormData();
+    fd.append("examSessionId", DEMO_EXAM_SESSION_ID);
+    fd.append("studentCode", code);
+    if (studentName.trim()) fd.append("studentName", studentName.trim());
+    fd.append("q1Zip", q1);
+    fd.append("q2Zip", q2);
+
+    const r = await createSubmissionZip(token, fd);
+    setSending(false);
+    if (!r.isSuccess || !r.data) {
+      setMsg({ type: "err", text: r.message ?? "Upload thất bại" });
+      return;
+    }
     setMsg({
-      type: "info",
-      text: `UI sẵn sàng: ${q1.name} + ${q2.name}. Endpoint upload sẽ do P2/P3 cung cấp. Bearer: ${token ? "có" : "không"} · Base: ${api || "(cùng origin)"}`,
+      type: "ok",
+      text: mock
+        ? `Mock: đã tạo submissionId = ${r.data}. (BE thật sẽ lưu file + stub chấm.)`
+        : `Đã tạo bài nộp submissionId = ${r.data}. Xem chi tiết tại danh sách / Swagger.`,
     });
   }
 
@@ -48,15 +75,53 @@ export function UploadSubmissionsPage() {
     <div className="ag-stack ag-stack--lg">
       <div className="ag-steps" aria-hidden>
         <div className="ag-steps__item ag-steps__item--done">1. Chọn zip</div>
-        <div className="ag-steps__item">2. Gửi & enqueue</div>
+        <div className="ag-steps__item ag-steps__item--done">2. Gửi & enqueue</div>
         <div className="ag-steps__item">3. Xem điểm</div>
       </div>
 
       <form className="ag-stack ag-stack--md" onSubmit={onSubmit}>
+        <div className="ag-field" style={{ maxWidth: 420 }}>
+          <label className="ag-label" htmlFor="exam-session-ro">
+            Ca thi (form field examSessionId)
+          </label>
+          <input
+            id="exam-session-ro"
+            className="ag-input"
+            readOnly
+            value={`PRN232-DEMO-PE (${DEMO_EXAM_SESSION_ID})`}
+          />
+        </div>
+        <div className="ag-upload-grid" style={{ marginTop: 8 }}>
+          <div className="ag-field">
+            <label className="ag-label" htmlFor="student-code">
+              MSSV <span className="ag-table__muted">(studentCode)</span>
+            </label>
+            <input
+              id="student-code"
+              className="ag-input"
+              value={studentCode}
+              onChange={(e) => setStudentCode(e.target.value)}
+              autoComplete="off"
+            />
+          </div>
+          <div className="ag-field">
+            <label className="ag-label" htmlFor="student-name">
+              Họ tên <span className="ag-table__muted">(tuỳ chọn)</span>
+            </label>
+            <input
+              id="student-name"
+              className="ag-input"
+              value={studentName}
+              onChange={(e) => setStudentName(e.target.value)}
+              autoComplete="name"
+            />
+          </div>
+        </div>
+
         <div className="ag-upload-grid">
           <DropCard
             title="Question 1"
-            subtitle="Solution zip (API / EF / Swagger…)"
+            subtitle="q1Zip — file .zip"
             file={q1}
             dragOver={dragOver === "q1"}
             onDragOver={(e) => {
@@ -73,7 +138,7 @@ export function UploadSubmissionsPage() {
           />
           <DropCard
             title="Question 2"
-            subtitle="MVC + HttpClient + Views"
+            subtitle="q2Zip — file .zip"
             file={q2}
             dragOver={dragOver === "q2"}
             onDragOver={(e) => {
@@ -106,8 +171,8 @@ export function UploadSubmissionsPage() {
           <Link to="/submissions" className="ag-btn ag-btn--ghost">
             Quay lại
           </Link>
-          <button type="submit" className="ag-btn ag-btn--primary ag-btn--lg" disabled={!q1 || !q2}>
-            Gửi bài (chờ API)
+          <button type="submit" className="ag-btn ag-btn--primary ag-btn--lg" disabled={!q1 || !q2 || sending}>
+            {sending ? "Đang gửi…" : "Gửi bài (multipart)"}
           </button>
         </div>
       </form>

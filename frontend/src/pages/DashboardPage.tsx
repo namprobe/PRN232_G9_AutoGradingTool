@@ -1,34 +1,67 @@
 import { Link } from "react-router-dom";
-import { MOCK_EXAM_SESSIONS, MOCK_SUBMISSIONS } from "../mock/cmsMockData";
+import { useEffect, useState } from "react";
+import { useAuth } from "../auth/AuthContext";
+import { listExamSessions, listSubmissions } from "../api/gradingApi";
+import { DEMO_EXAM_SESSION_ID } from "../api/gradingMockData";
+import { inferSessionStatus, workflowToQPair } from "../lib/gradingUi";
 
 export function DashboardPage() {
-  const activeSessions = MOCK_EXAM_SESSIONS.filter((e) => e.status === "active").length;
-  const totalSubs = MOCK_SUBMISSIONS.length;
-  const graded = MOCK_SUBMISSIONS.filter((s) => s.q1Status === "graded" && s.q2Status === "graded").length;
-  const inQueue = MOCK_SUBMISSIONS.filter((s) => s.q1Status === "grading" || s.q2Status === "grading" || s.q1Status === "pending").length;
+  const { token } = useAuth();
+  const [activeSessions, setActiveSessions] = useState(0);
+  const [totalSubs, setTotalSubs] = useState(0);
+  const [graded, setGraded] = useState(0);
+  const [inQueue, setInQueue] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      const es = await listExamSessions(token, null);
+      const subs = await listSubmissions(token, DEMO_EXAM_SESSION_ID);
+      if (cancelled) return;
+      if (es.isSuccess && es.data) {
+        setActiveSessions(es.data.filter((x) => inferSessionStatus(x.scheduledAtUtc) === "active").length);
+      }
+      if (subs.isSuccess && subs.data) {
+        setTotalSubs(subs.data.length);
+        setGraded(subs.data.filter((s) => s.status === "Completed").length);
+        setInQueue(
+          subs.data.filter((s) => {
+            const { q1, q2 } = workflowToQPair(s.status);
+            return q1 === "grading" || q2 === "grading" || q1 === "pending" || q2 === "pending";
+          }).length
+        );
+      }
+      setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
 
   return (
     <div className="ag-stack ag-stack--lg">
       <div className="ag-stat-grid">
         <div className="ag-stat">
-          <div className="ag-stat__label">Ca thi đang mở</div>
-          <div className="ag-stat__value">{activeSessions}</div>
-          <div className="ag-stat__hint">Theo dữ liệu mẫu</div>
+          <div className="ag-stat__label">Ca thi đang mở (ước lượng)</div>
+          <div className="ag-stat__value">{loading ? "…" : activeSessions}</div>
+          <div className="ag-stat__hint">Theo lịch ca thi</div>
         </div>
         <div className="ag-stat ag-stat--accent">
-          <div className="ag-stat__label">Bài nộp (mẫu)</div>
-          <div className="ag-stat__value">{totalSubs}</div>
+          <div className="ag-stat__label">Bài nộp (ca demo)</div>
+          <div className="ag-stat__value">{loading ? "…" : totalSubs}</div>
           <div className="ag-stat__hint">Zip Q1 + Q2</div>
         </div>
         <div className="ag-stat">
           <div className="ag-stat__label">Đã chấm xong</div>
-          <div className="ag-stat__value">{graded}</div>
-          <div className="ag-stat__hint">Q1 & Q2 graded</div>
+          <div className="ag-stat__value">{loading ? "…" : graded}</div>
+          <div className="ag-stat__hint">Pipeline Completed</div>
         </div>
         <div className="ag-stat">
-          <div className="ag-stat__label">Trong hàng đợi</div>
-          <div className="ag-stat__value">{inQueue}</div>
-          <div className="ag-stat__hint">Hangfire (sau này)</div>
+          <div className="ag-stat__label">Chờ / đang chấm</div>
+          <div className="ag-stat__value">{loading ? "…" : inQueue}</div>
+          <div className="ag-stat__hint">Theo cột Q1–Q2</div>
         </div>
       </div>
 
@@ -47,7 +80,7 @@ export function DashboardPage() {
               </span>
               <span className="ag-tile__text">
                 <span className="ag-tile__title">Tải zip Q1 & Q2</span>
-                <span className="ag-tile__sub">Gửi bài thi thử nghiệm</span>
+                <span className="ag-tile__sub">POST /api/cms/grading/submissions</span>
               </span>
             </Link>
             <Link className="ag-tile" to="/exam-sessions">
@@ -59,7 +92,7 @@ export function DashboardPage() {
               </span>
               <span className="ag-tile__text">
                 <span className="ag-tile__title">Quản lý ca thi</span>
-                <span className="ag-tile__sub">Xem phiên & chủ đề</span>
+                <span className="ag-tile__sub">GET exam-sessions</span>
               </span>
             </Link>
             <Link className="ag-tile" to="/submissions">
@@ -71,7 +104,7 @@ export function DashboardPage() {
               </span>
               <span className="ag-tile__text">
                 <span className="ag-tile__title">Theo dõi bài nộp</span>
-                <span className="ag-tile__sub">Trạng thái & điểm</span>
+                <span className="ag-tile__sub">GET submissions</span>
               </span>
             </Link>
           </div>
@@ -80,28 +113,28 @@ export function DashboardPage() {
         <section className="ag-card ag-animate-in ag-animate-in--delay">
           <div className="ag-card__head">
             <h2 className="ag-card__title">Hoạt động gần đây</h2>
-            <p className="ag-card__desc">Bản ghi mẫu — API sẽ thay thế</p>
+            <p className="ag-card__desc">Tóm tắt từ API / mock</p>
           </div>
           <ul className="ag-timeline">
             <li className="ag-timeline__item">
               <span className="ag-timeline__dot ag-timeline__dot--ok" />
               <div>
-                <strong>Chấm xong</strong> · HE186501 · PRN232-PE-2026
-                <div className="ag-timeline__meta">15/04/2026 — 8.5 / 10</div>
+                <strong>Chấm xong</strong> · HE186501 · PRN232-DEMO-PE
+                <div className="ag-timeline__meta">GET submissions + seed</div>
               </div>
             </li>
             <li className="ag-timeline__item">
               <span className="ag-timeline__dot ag-timeline__dot--info" />
               <div>
-                <strong>Đang chấm Q2</strong> · HE186502
-                <div className="ag-timeline__meta">Hangfire job #mock-2042</div>
+                <strong>Đang chấm</strong> · HE186502
+                <div className="ag-timeline__meta">Pipeline Running (mock)</div>
               </div>
             </li>
             <li className="ag-timeline__item">
-              <span className="ag-timeline__dot ag-timeline__dot--err" />
+              <span className="ag-timeline__dot ag-timeline__dot--muted" />
               <div>
-                <strong>Lỗi build Q1</strong> · HE186503
-                <div className="ag-timeline__meta">dotnet restore — exit code 1 (mẫu)</div>
+                <strong>Swagger</strong> · nhóm CMS_Grading
+                <div className="ag-timeline__meta">http://localhost:5000/swagger</div>
               </div>
             </li>
           </ul>
