@@ -91,6 +91,15 @@ public class GlobalExceptionHandlingMiddleware
                 GetMessageOrDefault(insufficientEx.Message, insufficientEx.ErrorCode),
                 insufficientEx.Details);
         
+        if (exception is BusinessRuleViolationException brEx)
+            return (HttpStatusCode.UnprocessableEntity, brEx.ErrorCode,
+                GetMessageOrDefault(brEx.Message, brEx.ErrorCode),
+                brEx.Details);
+        
+        if (exception is NotFoundException notFoundEx)
+            return (HttpStatusCode.NotFound, notFoundEx.ErrorCode,
+                GetMessageOrDefault(notFoundEx.Message, notFoundEx.ErrorCode), null);
+        
         // System-level exceptions
         if (exception is UnauthorizedAccessException unauthorizedAccessEx)
             return HandleUnauthorizedAccessException(unauthorizedAccessEx);
