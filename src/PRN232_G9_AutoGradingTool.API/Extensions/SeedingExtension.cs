@@ -53,6 +53,7 @@ public static class SeedingExtension
 
         var db = scope.ServiceProvider.GetRequiredService<PRN232_G9_AutoGradingToolDbContext>();
         await ExamGradingSeeder.SeedAsync(db, logger, CancellationToken.None);
+        await ExamGradingPackSeeder.SeedAsync(db, logger, CancellationToken.None);
 
         // Seed admin user
         var adminEmail = configuration.GetSection("AdminUser").GetValue<string>("Email")?.Trim();
