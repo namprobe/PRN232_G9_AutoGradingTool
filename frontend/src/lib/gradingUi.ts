@@ -1,5 +1,5 @@
 import type { FlowStatus, SessionStatus } from "../components/StatusBadge";
-import type { ExamSubmissionDetail, ExamSubmissionListItem } from "../api/gradingTypes";
+import type { ExamSubmissionDetail } from "../api/gradingTypes";
 
 export type { FlowStatus };
 
@@ -28,6 +28,6 @@ export function submissionMaxScore(detail: ExamSubmissionDetail): number {
   return qs.reduce((a, q) => a + q.maxScore, 0);
 }
 
-export function listItemMaxScore(_row: ExamSubmissionListItem): number {
+export function listItemMaxScore(): number {
   return 10;
 }

@@ -22,7 +22,8 @@ export function SubmissionsListPage() {
       if (cancelled) return;
       if (sr.isSuccess && sr.data?.length) {
         setSessions(sr.data);
-        if (!sr.data.some((s) => s.id === sessionId)) setSessionId(sr.data[0].id);
+        const first = sr.data[0];
+        if (first && !sr.data.some((s) => s.id === sessionId)) setSessionId(first.id);
       }
     })();
     return () => {
@@ -117,7 +118,7 @@ export function SubmissionsListPage() {
               ) : (
                 rows.map((s) => {
                   const { q1, q2 } = workflowToQPair(s.status);
-                  const max = listItemMaxScore(s);
+                  const max = listItemMaxScore();
                   return (
                     <tr key={s.id}>
                       <td>

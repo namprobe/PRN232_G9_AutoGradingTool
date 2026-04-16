@@ -1,6 +1,7 @@
 import type { ReactElement } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { useApiMock } from "../config/env";
 
 function useHeaderMeta(): { title: string; subtitle: string } {
   const { pathname } = useLocation();
@@ -36,6 +37,7 @@ const nav: NavItem[] = [
 
 export function AppShell() {
   const { user, logout } = useAuth();
+  const apiMock = useApiMock();
   const { pathname } = useLocation();
   const { title, subtitle } = useHeaderMeta();
   const exp = user?.expiresAt
@@ -70,8 +72,12 @@ export function AppShell() {
           ))}
         </nav>
         <div className="ag-sidebar__foot">
-          <span className="ag-chip ag-chip--muted">Dữ liệu mẫu</span>
-          <p className="ag-sidebar__hint">Giao diện P4 hoàn chỉnh — API sẽ nối sau.</p>
+          <span className="ag-chip ag-chip--muted">{apiMock ? "Mock API (dev)" : "API thật"}</span>
+          <p className="ag-sidebar__hint">
+            {apiMock
+              ? "VITE_USE_API_MOCK=true — auth + grading trả dữ liệu local."
+              : "Gọi backend theo VITE_API_BASE_URL / cùng origin."}
+          </p>
         </div>
       </aside>
       <div className="ag-app__main">

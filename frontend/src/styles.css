@@ -489,6 +489,11 @@ a {
   box-shadow: 0 0 12px rgba(251, 113, 133, 0.45);
 }
 
+.ag-timeline__dot--muted {
+  background: var(--ag-muted);
+  box-shadow: none;
+}
+
 .ag-timeline__meta {
   font-size: 0.78rem;
   color: var(--ag-muted);
