@@ -66,6 +66,8 @@ public static class ExamGradingModelConfiguration
             e.Property(x => x.WorkflowStatus).HasColumnName("workflow_status").HasConversion<int>();
             e.HasOne(x => x.ExamSession).WithMany(x => x.Submissions).HasForeignKey(x => x.ExamSessionId)
                 .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.ExamGradingPack).WithMany().HasForeignKey(x => x.ExamGradingPackId)
+                .OnDelete(DeleteBehavior.SetNull);
             e.HasIndex(x => new { x.ExamSessionId, x.StudentCode });
         });
 
@@ -94,6 +96,55 @@ public static class ExamGradingModelConfiguration
             e.HasOne(x => x.ExamTestCase).WithMany(x => x.Scores).HasForeignKey(x => x.ExamTestCaseId)
                 .OnDelete(DeleteBehavior.Restrict);
             e.HasIndex(x => new { x.ExamSubmissionId, x.ExamTestCaseId }).IsUnique();
+        });
+
+        modelBuilder.Entity<ExamGradingPack>(e =>
+        {
+            e.ToTable("exam_grading_packs");
+            e.Property(x => x.Label).HasMaxLength(256).IsRequired();
+            e.Property(x => x.Version).IsRequired();
+            e.HasOne(x => x.ExamSession).WithMany(x => x.GradingPacks).HasForeignKey(x => x.ExamSessionId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => new { x.ExamSessionId, x.Version }).IsUnique();
+            e.HasIndex(x => new { x.ExamSessionId, x.IsActive });
+        });
+
+        modelBuilder.Entity<ExamPackAsset>(e =>
+        {
+            e.ToTable("exam_pack_assets");
+            e.Property(x => x.Kind).HasConversion<int>();
+            e.Property(x => x.StorageRelativePath).HasMaxLength(2048).IsRequired();
+            e.Property(x => x.OriginalFileName).HasMaxLength(512);
+            e.HasOne(x => x.Pack).WithMany(x => x.Assets).HasForeignKey(x => x.ExamGradingPackId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<GradingTestDefinition>(e =>
+        {
+            e.ToTable("grading_test_definitions");
+            e.Property(x => x.Kind).HasConversion<int>();
+            e.Property(x => x.Name).HasMaxLength(256).IsRequired();
+            e.Property(x => x.PayloadJson).HasColumnType("text");
+            e.HasOne(x => x.Pack).WithMany(x => x.TestDefinitions).HasForeignKey(x => x.ExamGradingPackId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.ExamTestCase).WithMany(x => x.GradingDefinitions).HasForeignKey(x => x.ExamTestCaseId)
+                .OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(x => new { x.ExamGradingPackId, x.SortOrder });
+        });
+
+        modelBuilder.Entity<GradingJob>(e =>
+        {
+            e.ToTable("grading_jobs");
+            e.Property(x => x.JobStatus).HasColumnName("job_status").HasConversion<int>();
+            e.Property(x => x.ErrorMessage).HasMaxLength(4000);
+            e.Property(x => x.StartedAtUtc).HasColumnType("timestamp with time zone");
+            e.Property(x => x.FinishedAtUtc).HasColumnType("timestamp with time zone");
+            e.HasOne(x => x.ExamSubmission).WithMany(x => x.GradingJobs).HasForeignKey(x => x.ExamSubmissionId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Pack).WithMany(x => x.Jobs).HasForeignKey(x => x.ExamGradingPackId)
+                .OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(x => x.ExamSubmissionId);
+            e.HasIndex(x => new { x.ExamSubmissionId, x.JobStatus });
         });
     }
 }

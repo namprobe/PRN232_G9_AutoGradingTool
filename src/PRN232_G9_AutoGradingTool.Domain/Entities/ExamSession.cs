@@ -13,4 +13,5 @@ public class ExamSession : BaseEntity
 
     public ICollection<ExamTopic> Topics { get; set; } = new List<ExamTopic>();
     public ICollection<ExamSubmission> Submissions { get; set; } = new List<ExamSubmission>();
+    public ICollection<ExamGradingPack> GradingPacks { get; set; } = new List<ExamGradingPack>();
 }

@@ -12,4 +12,5 @@ public class ExamTestCase : BaseEntity
     public int SortOrder { get; set; }
 
     public ICollection<ExamTestCaseScore> Scores { get; set; } = new List<ExamTestCaseScore>();
+    public ICollection<GradingTestDefinition> GradingDefinitions { get; set; } = new List<GradingTestDefinition>();
 }

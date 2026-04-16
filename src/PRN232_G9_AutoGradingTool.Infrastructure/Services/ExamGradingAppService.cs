@@ -182,10 +182,16 @@ public class ExamGradingAppService : IExamGradingAppService
         if (!IsZip(q1Zip) || !IsZip(q2Zip))
             return Result<Guid>.Failure("Hai file phải là .zip.", ErrorCodeEnum.InvalidFileType);
 
+        var pack = await _db.ExamGradingPacks
+            .Where(p => p.ExamSessionId == examSessionId && p.IsActive)
+            .OrderByDescending(p => p.Version)
+            .FirstOrDefaultAsync(cancellationToken);
+
         var submission = new ExamSubmission
         {
             Id = Guid.NewGuid(),
             ExamSessionId = examSessionId,
+            ExamGradingPackId = pack?.Id,
             StudentCode = studentCode.Trim(),
             StudentName = string.IsNullOrWhiteSpace(studentName) ? null : studentName.Trim(),
             WorkflowStatus = ExamSubmissionStatus.Pending,
@@ -193,6 +199,22 @@ public class ExamGradingAppService : IExamGradingAppService
             CreatedAt = DateTime.UtcNow,
             Status = EntityStatusEnum.Active
         };
+
+        Guid? gradingJobId = null;
+        if (pack != null)
+        {
+            var job = new GradingJob
+            {
+                Id = Guid.NewGuid(),
+                ExamSubmissionId = submission.Id,
+                ExamGradingPackId = pack.Id,
+                JobStatus = GradingJobStatus.Queued,
+                CreatedAt = DateTime.UtcNow,
+                Status = EntityStatusEnum.Active
+            };
+            gradingJobId = job.Id;
+            _db.GradingJobs.Add(job);
+        }
 
         _db.ExamSubmissions.Add(submission);
         await _db.SaveChangesAsync(cancellationToken);
@@ -209,14 +231,42 @@ public class ExamGradingAppService : IExamGradingAppService
             submission.Q1ZipRelativePath = p1;
             submission.Q2ZipRelativePath = p2;
             submission.WorkflowStatus = ExamSubmissionStatus.Running;
+
+            if (gradingJobId.HasValue)
+            {
+                var job = await _db.GradingJobs.FirstAsync(j => j.Id == gradingJobId.Value, cancellationToken);
+                job.JobStatus = GradingJobStatus.Running;
+                job.StartedAtUtc = DateTime.UtcNow;
+            }
+
             await _db.SaveChangesAsync(cancellationToken);
 
             await ApplyStubGradingAsync(submission.Id, cancellationToken);
+
+            if (gradingJobId.HasValue)
+            {
+                var job = await _db.GradingJobs.FirstAsync(j => j.Id == gradingJobId.Value, cancellationToken);
+                job.JobStatus = GradingJobStatus.Completed;
+                job.FinishedAtUtc = DateTime.UtcNow;
+                job.ErrorMessage = null;
+                await _db.SaveChangesAsync(cancellationToken);
+            }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Lỗi upload/chấm stub cho submission {Id}", submission.Id);
             submission.WorkflowStatus = ExamSubmissionStatus.Failed;
+            if (gradingJobId.HasValue)
+            {
+                var job = await _db.GradingJobs.FirstOrDefaultAsync(j => j.Id == gradingJobId.Value, cancellationToken);
+                if (job != null)
+                {
+                    job.JobStatus = GradingJobStatus.Failed;
+                    job.FinishedAtUtc = DateTime.UtcNow;
+                    job.ErrorMessage = ex.Message.Length > 4000 ? ex.Message[..4000] : ex.Message;
+                }
+            }
+
             await _db.SaveChangesAsync(cancellationToken);
             return Result<Guid>.Failure("Lưu file hoặc chấm stub thất bại.", ErrorCodeEnum.FileUploadFailed);
         }
