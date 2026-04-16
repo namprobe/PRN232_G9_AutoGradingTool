@@ -6,12 +6,22 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Npgsql.EntityFrameworkCore.PostgreSQL;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using PRN232_G9_AutoGradingTool.Infrastructure.Configurations;
 using System.Linq;
 
 namespace PRN232_G9_AutoGradingTool.Infrastructure.Context;
 
 public class PRN232_G9_AutoGradingToolDbContext : IdentityDbContext<AppUser, AppRole, Guid>
 {
+    public DbSet<Semester> Semesters => Set<Semester>();
+    public DbSet<ExamSession> ExamSessions => Set<ExamSession>();
+    public DbSet<ExamTopic> ExamTopics => Set<ExamTopic>();
+    public DbSet<ExamQuestion> ExamQuestions => Set<ExamQuestion>();
+    public DbSet<ExamTestCase> ExamTestCases => Set<ExamTestCase>();
+    public DbSet<ExamSubmission> ExamSubmissions => Set<ExamSubmission>();
+    public DbSet<ExamQuestionScore> ExamQuestionScores => Set<ExamQuestionScore>();
+    public DbSet<ExamTestCaseScore> ExamTestCaseScores => Set<ExamTestCaseScore>();
+
     public PRN232_G9_AutoGradingToolDbContext(DbContextOptions<PRN232_G9_AutoGradingToolDbContext> options) : base(options)
     {
     }
@@ -56,5 +66,7 @@ public class PRN232_G9_AutoGradingToolDbContext : IdentityDbContext<AppUser, App
 
         // Gọi cấu hình chung cho BaseEntity
         BaseEntityConfigurationHelper.ConfigureBaseEntities(builder);
+
+        builder.ConfigureExamGrading();
     }
 }

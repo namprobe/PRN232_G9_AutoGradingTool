@@ -5,6 +5,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using PRN232_G9_AutoGradingTool.Domain.Entities;
 using PRN232_G9_AutoGradingTool.Domain.Enums;
+using PRN232_G9_AutoGradingTool.Infrastructure.Context;
+using PRN232_G9_AutoGradingTool.Infrastructure.Seeding;
 
 namespace PRN232_G9_AutoGradingTool.API.Extensions;
 
@@ -49,12 +51,16 @@ public static class SeedingExtension
             }
         }
 
+        var db = scope.ServiceProvider.GetRequiredService<PRN232_G9_AutoGradingToolDbContext>();
+        await ExamGradingSeeder.SeedAsync(db, logger, CancellationToken.None);
+
         // Seed admin user
         var adminEmail = configuration.GetSection("AdminUser").GetValue<string>("Email")?.Trim();
         var adminPassword = configuration.GetSection("AdminUser").GetValue<string>("DefaultPassword");
         if (string.IsNullOrWhiteSpace(adminEmail) || string.IsNullOrWhiteSpace(adminPassword))
         {
             logger.LogWarning("AdminUser configuration is missing. Skipping admin seeding.");
+            logger.LogInformation("Data seeding completed (no admin).");
             return;
         }
 

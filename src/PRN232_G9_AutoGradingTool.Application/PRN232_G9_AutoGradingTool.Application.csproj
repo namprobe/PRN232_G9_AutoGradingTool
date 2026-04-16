@@ -10,6 +10,10 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
   <!-- Resource files (.resx) are automatically included by .NET SDK -->
   <!-- They will be built into satellite assemblies automatically -->
 

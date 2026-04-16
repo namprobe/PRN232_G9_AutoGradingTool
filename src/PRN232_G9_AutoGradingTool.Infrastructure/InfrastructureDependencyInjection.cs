@@ -145,6 +145,7 @@ public static class InfrastructureDependencyInjection
         
         // Register localization service
         services.AddScoped<ILocalizationService, LocalizationService>();
+        services.AddScoped<IExamGradingAppService, ExamGradingAppService>();
         // File storage services
         services.AddScoped<LocalFileService>(); // Local storage implementation
         // services.AddScoped<S3FileService>(); // Uncomment when S3 is implemented
