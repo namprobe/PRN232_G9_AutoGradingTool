@@ -25,6 +25,8 @@ public class PRN232_G9_AutoGradingToolDbContext : IdentityDbContext<AppUser, App
     public DbSet<ExamPackAsset> ExamPackAssets => Set<ExamPackAsset>();
     public DbSet<GradingTestDefinition> GradingTestDefinitions => Set<GradingTestDefinition>();
     public DbSet<GradingJob> GradingJobs => Set<GradingJob>();
+    public DbSet<GradingJobLog> GradingJobLogs => Set<GradingJobLog>();
+    public DbSet<ExamSubmissionFile> ExamSubmissionFiles => Set<ExamSubmissionFile>();
 
     public PRN232_G9_AutoGradingToolDbContext(DbContextOptions<PRN232_G9_AutoGradingToolDbContext> options) : base(options)
     {

@@ -43,14 +43,16 @@ public class ExamGradingAppService : IExamGradingAppService
             q = q.Where(x => x.SemesterId == semesterId.Value);
 
         var rows = await q
-            .OrderByDescending(x => x.ScheduledAtUtc)
+            .OrderByDescending(x => x.StartsAtUtc)
             .Select(x => new ExamSessionListItemDto(
                 x.Id,
                 x.Code,
                 x.Title,
                 x.SemesterId,
                 x.Semester.Code,
-                x.ScheduledAtUtc,
+                x.StartsAtUtc,
+                x.ExamDurationMinutes,
+                x.EndsAtUtc,
                 x.Topics.Count,
                 x.Topics.SelectMany(t => t.Questions).Count(),
                 x.Submissions.Count))
@@ -88,7 +90,9 @@ public class ExamGradingAppService : IExamGradingAppService
             session.Title,
             session.SemesterId,
             session.Semester.Code,
-            session.ScheduledAtUtc,
+            session.StartsAtUtc,
+            session.ExamDurationMinutes,
+            session.EndsAtUtc,
             topics);
 
         return Result<ExamSessionDetailDto>.Success(dto, "OK");
@@ -120,6 +124,7 @@ public class ExamGradingAppService : IExamGradingAppService
     {
         var sub = await _db.ExamSubmissions.AsNoTracking()
             .Include(x => x.ExamSession)
+            .Include(x => x.SubmissionFiles)
             .Include(x => x.QuestionScores).ThenInclude(qs => qs.ExamQuestion)
             .Include(x => x.TestCaseScores).ThenInclude(ts => ts.ExamTestCase).ThenInclude(tc => tc!.ExamQuestion)
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
@@ -144,6 +149,11 @@ public class ExamGradingAppService : IExamGradingAppService
                 x.Message))
             .ToList();
 
+        var files = sub.SubmissionFiles
+            .OrderBy(x => x.QuestionLabel)
+            .Select(x => new SubmissionFileDto(x.QuestionLabel, x.StorageRelativePath, x.OriginalFileName))
+            .ToList();
+
         var dto = new ExamSubmissionDetailDto(
             sub.Id,
             sub.ExamSessionId,
@@ -153,8 +163,7 @@ public class ExamGradingAppService : IExamGradingAppService
             sub.WorkflowStatus.ToString(),
             sub.SubmittedAtUtc,
             sub.TotalScore,
-            sub.Q1ZipRelativePath,
-            sub.Q2ZipRelativePath,
+            files,
             qScores,
             tcScores);
 
@@ -228,8 +237,27 @@ public class ExamGradingAppService : IExamGradingAppService
             if (string.IsNullOrEmpty(p1) || string.IsNullOrEmpty(p2))
                 throw new InvalidOperationException("Upload trả về đường dẫn rỗng.");
 
-            submission.Q1ZipRelativePath = p1;
-            submission.Q2ZipRelativePath = p2;
+            _db.ExamSubmissionFiles.AddRange(
+                new ExamSubmissionFile
+                {
+                    Id = Guid.NewGuid(),
+                    ExamSubmissionId = submission.Id,
+                    QuestionLabel = "Q1",
+                    StorageRelativePath = p1,
+                    OriginalFileName = q1Zip.FileName,
+                    CreatedAt = DateTime.UtcNow,
+                    Status = EntityStatusEnum.Active
+                },
+                new ExamSubmissionFile
+                {
+                    Id = Guid.NewGuid(),
+                    ExamSubmissionId = submission.Id,
+                    QuestionLabel = "Q2",
+                    StorageRelativePath = p2,
+                    OriginalFileName = q2Zip.FileName,
+                    CreatedAt = DateTime.UtcNow,
+                    Status = EntityStatusEnum.Active
+                });
             submission.WorkflowStatus = ExamSubmissionStatus.Running;
 
             if (gradingJobId.HasValue)
@@ -272,6 +300,136 @@ public class ExamGradingAppService : IExamGradingAppService
         }
 
         return Result<Guid>.Success(submission.Id, "Đã nhận zip và chạy chấm stub (demo).");
+    }
+
+    public async Task<Result<bool>> ReplaceSubmissionFileAsync(
+        Guid submissionId,
+        string questionLabel,
+        IFormFile zipFile,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(questionLabel))
+            return Result<bool>.Failure("questionLabel bắt buộc (Q1, Q2, ...).", ErrorCodeEnum.ValidationFailed);
+
+        if (!IsZip(zipFile))
+            return Result<bool>.Failure("File phải là .zip.", ErrorCodeEnum.InvalidFileType);
+
+        var submission = await _db.ExamSubmissions
+            .Include(x => x.SubmissionFiles)
+            .FirstOrDefaultAsync(x => x.Id == submissionId, cancellationToken);
+
+        if (submission == null)
+            return Result<bool>.Failure("Không tìm thấy bài nộp.", ErrorCodeEnum.NotFound);
+
+        var label = questionLabel.Trim().ToUpperInvariant();
+        var fileService = _fileServiceFactory.CreateFileService();
+        var subDir = Path.Combine("exam-submissions", submission.Id.ToString("N"));
+
+        var path = await fileService.UploadFileAsync(zipFile, $"{label.ToLowerInvariant()}.zip", subDir, cancellationToken);
+        if (string.IsNullOrEmpty(path))
+            return Result<bool>.Failure("Upload file thất bại.", ErrorCodeEnum.FileUploadFailed);
+
+        // Xoá file cũ (nếu có), tạo mới
+        var existing = submission.SubmissionFiles.FirstOrDefault(f =>
+            f.QuestionLabel.Equals(label, StringComparison.OrdinalIgnoreCase));
+        if (existing != null)
+            _db.ExamSubmissionFiles.Remove(existing);
+
+        _db.ExamSubmissionFiles.Add(new ExamSubmissionFile
+        {
+            Id = Guid.NewGuid(),
+            ExamSubmissionId = submission.Id,
+            QuestionLabel = label,
+            StorageRelativePath = path,
+            OriginalFileName = zipFile.FileName,
+            CreatedAt = DateTime.UtcNow,
+            Status = EntityStatusEnum.Active
+        });
+
+        // Reset trạng thái về Pending để chờ trigger regrade
+        submission.WorkflowStatus = ExamSubmissionStatus.Pending;
+        submission.TotalScore = null;
+
+        await _db.SaveChangesAsync(cancellationToken);
+        _logger.LogInformation("Admin replaced {Label} file for submission {Id}", label, submissionId);
+        return Result<bool>.Success(true, $"Đã thay thế file {label}. Gọi POST /regrade để chấm lại.");
+    }
+
+    public async Task<Result<TriggerRegradeResponseDto>> TriggerRegradeAsync(
+        Guid submissionId,
+        CancellationToken cancellationToken = default)
+    {
+        var submission = await _db.ExamSubmissions
+            .Include(x => x.ExamSession)
+            .Include(x => x.SubmissionFiles)
+            .FirstOrDefaultAsync(x => x.Id == submissionId, cancellationToken);
+
+        if (submission == null)
+            return Result<TriggerRegradeResponseDto>.Failure("Không tìm thấy bài nộp.", ErrorCodeEnum.NotFound);
+
+        if (!submission.SubmissionFiles.Any())
+            return Result<TriggerRegradeResponseDto>.Failure(
+                "Bài nộp chưa có file. Upload file trước khi trigger regrade.",
+                ErrorCodeEnum.ValidationFailed);
+
+        var pack = await _db.ExamGradingPacks
+            .Where(p => p.ExamSessionId == submission.ExamSessionId && p.IsActive)
+            .OrderByDescending(p => p.Version)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (pack == null)
+            return Result<TriggerRegradeResponseDto>.Failure(
+                "Không có GradingPack active cho ca thi này.",
+                ErrorCodeEnum.NotFound);
+
+        // Tạo GradingJob mới với trigger ManualRegrade
+        var job = new GradingJob
+        {
+            Id = Guid.NewGuid(),
+            ExamSubmissionId = submission.Id,
+            ExamGradingPackId = pack.Id,
+            JobStatus = GradingJobStatus.Queued,
+            Trigger = GradingJobTrigger.ManualRegrade,
+            CreatedAt = DateTime.UtcNow,
+            Status = EntityStatusEnum.Active
+        };
+        _db.GradingJobs.Add(job);
+
+        submission.WorkflowStatus = ExamSubmissionStatus.Queued;
+        await _db.SaveChangesAsync(cancellationToken);
+
+        // TODO (P3): BackgroundJob.Enqueue<GradeSubmissionJob>(x => x.ExecuteAsync(job.Id))
+        // Tạm thời chạy stub để demo
+        job.JobStatus = GradingJobStatus.Running;
+        job.StartedAtUtc = DateTime.UtcNow;
+        await _db.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            await ApplyStubGradingAsync(submission.Id, cancellationToken);
+            job.JobStatus = GradingJobStatus.Completed;
+            job.FinishedAtUtc = DateTime.UtcNow;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Regrade stub thất bại cho submission {Id}", submissionId);
+            job.JobStatus = GradingJobStatus.Failed;
+            job.FinishedAtUtc = DateTime.UtcNow;
+            job.ErrorMessage = ex.Message.Length > 4000 ? ex.Message[..4000] : ex.Message;
+            submission.WorkflowStatus = ExamSubmissionStatus.Failed;
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
+
+        var dto = new TriggerRegradeResponseDto(
+            job.Id,
+            job.Trigger.ToString(),
+            job.JobStatus.ToString(),
+            job.JobStatus == GradingJobStatus.Completed
+                ? "Chấm lại thành công (stub)."
+                : "Chấm lại thất bại — xem log.");
+
+        return Result<TriggerRegradeResponseDto>.Success(dto, dto.Message);
     }
 
     private static bool IsZip(IFormFile f)

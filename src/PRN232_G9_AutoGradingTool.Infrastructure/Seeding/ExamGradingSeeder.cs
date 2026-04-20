@@ -46,7 +46,9 @@ public static class ExamGradingSeeder
             SemesterId = semesterId,
             Code = "PRN232-DEMO-PE",
             Title = "Practical Exam — PRN232 (demo)",
-            ScheduledAtUtc = now.AddDays(14),
+            StartsAtUtc = now.AddDays(14),
+            ExamDurationMinutes = 90,
+            EndsAtUtc = now.AddDays(14).AddMinutes(110), // 90p làm bài + 20p dự phòng kỹ thuật
             CreatedAt = now,
             Status = EntityStatusEnum.Active
         };
@@ -98,12 +100,16 @@ public static class ExamGradingSeeder
             StudentCode = "HE186501",
             StudentName = "Bài mẫu (seed)",
             WorkflowStatus = ExamSubmissionStatus.Completed,
-            Q1ZipRelativePath = "seed/demo-q1.zip",
-            Q2ZipRelativePath = "seed/demo-q2.zip",
             TotalScore = 8.5m,
             SubmittedAtUtc = now.AddMinutes(-30),
             CreatedAt = now,
             Status = EntityStatusEnum.Active
+        };
+
+        var sampleFiles = new[]
+        {
+            new ExamSubmissionFile { Id = Guid.NewGuid(), ExamSubmissionId = sampleSubId, QuestionLabel = "Q1", StorageRelativePath = "seed/demo-q1.zip", OriginalFileName = "demo-q1.zip", CreatedAt = now, Status = EntityStatusEnum.Active },
+            new ExamSubmissionFile { Id = Guid.NewGuid(), ExamSubmissionId = sampleSubId, QuestionLabel = "Q2", StorageRelativePath = "seed/demo-q2.zip", OriginalFileName = "demo-q2.zip", CreatedAt = now, Status = EntityStatusEnum.Active },
         };
 
         db.Semesters.Add(semester);
@@ -112,6 +118,7 @@ public static class ExamGradingSeeder
         db.ExamQuestions.AddRange(q1, q2);
         db.ExamTestCases.AddRange(tcs);
         db.ExamSubmissions.Add(sample);
+        db.ExamSubmissionFiles.AddRange(sampleFiles);
 
         await db.SaveChangesAsync(cancellationToken);
 

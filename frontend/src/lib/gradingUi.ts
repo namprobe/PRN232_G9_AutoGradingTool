@@ -4,11 +4,12 @@ import type { ExamSubmissionDetail } from "../api/gradingTypes";
 export type { FlowStatus };
 
 /** Ca thi API không có trạng thái — hiển thị demo theo lịch. */
-export function inferSessionStatus(scheduledAtUtc: string): SessionStatus {
-  const t = new Date(scheduledAtUtc).getTime();
+export function inferSessionStatus(startsAtUtc: string, endsAtUtc?: string): SessionStatus {
+  const start = new Date(startsAtUtc).getTime();
+  const end = endsAtUtc ? new Date(endsAtUtc).getTime() : start + 110 * 60000;
   const now = Date.now();
-  if (t > now + 7 * 86400000) return "draft";
-  if (t < now - 86400000) return "closed";
+  if (start > now + 7 * 86400000) return "draft";
+  if (end < now) return "closed";
   return "active";
 }
 

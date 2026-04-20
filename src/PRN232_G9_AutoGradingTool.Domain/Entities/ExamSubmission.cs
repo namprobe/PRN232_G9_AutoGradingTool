@@ -18,12 +18,10 @@ public class ExamSubmission : BaseEntity
     /// <summary>Trạng thái pipeline (cột workflow_status — tránh trùng BaseEntity.Status).</summary>
     public ExamSubmissionStatus WorkflowStatus { get; set; } = ExamSubmissionStatus.Pending;
 
-    public string? Q1ZipRelativePath { get; set; }
-    public string? Q2ZipRelativePath { get; set; }
-
     public decimal? TotalScore { get; set; }
     public DateTime SubmittedAtUtc { get; set; }
 
+    public ICollection<ExamSubmissionFile> SubmissionFiles { get; set; } = new List<ExamSubmissionFile>();
     public ICollection<ExamQuestionScore> QuestionScores { get; set; } = new List<ExamQuestionScore>();
     public ICollection<ExamTestCaseScore> TestCaseScores { get; set; } = new List<ExamTestCaseScore>();
     public ICollection<GradingJob> GradingJobs { get; set; } = new List<GradingJob>();

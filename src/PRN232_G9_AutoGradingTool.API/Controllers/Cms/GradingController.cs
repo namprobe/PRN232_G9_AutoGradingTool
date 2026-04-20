@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using PRN232_G9_AutoGradingTool.Application.Common.DTOs.ExamGrading;
 using PRN232_G9_AutoGradingTool.Application.Common.Enums;
 using PRN232_G9_AutoGradingTool.Application.Common.Extensions;
 using PRN232_G9_AutoGradingTool.Application.Common.Interfaces;
@@ -91,4 +92,50 @@ public class GradingController : ControllerBase
         var r = await _grading.CreateSubmissionWithZipAsync(examSessionId, studentCode, studentName, q1Zip, q2Zip, cancellationToken);
         return StatusCode(r.GetHttpStatusCode(), r);
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Flow 2 — Manual regrade (Admin upload lại file + trigger chấm thủ công)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    [HttpPut("submissions/{id:guid}/files")]
+    [Consumes("multipart/form-data")]
+    [SwaggerOperation(
+        Summary = "Admin thay file zip cho một câu (bypass EndsAtUtc)",
+        Description = "Dùng khi SV gặp sự cố kỹ thuật và gửi bài qua mail. " +
+                      "Không trigger chấm — gọi POST /regrade tiếp theo.",
+        OperationId = "Grading_ReplaceSubmissionFile",
+        Tags = new[] { "CMS_Grading" })]
+    [ProducesResponseType(typeof(Result<bool>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Result<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Result<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ReplaceSubmissionFile(
+        [FromRoute] Guid id,
+        [FromForm] string questionLabel,
+        IFormFile zipFile,
+        CancellationToken cancellationToken)
+    {
+        if (zipFile == null || zipFile.Length == 0)
+            return BadRequest(Result<bool>.Failure("Thiếu file zip.", ErrorCodeEnum.ValidationFailed));
+
+        var r = await _grading.ReplaceSubmissionFileAsync(id, questionLabel, zipFile, cancellationToken);
+        return StatusCode(r.GetHttpStatusCode(), r);
+    }
+
+    [HttpPost("submissions/{id:guid}/regrade")]
+    [SwaggerOperation(
+        Summary = "Trigger chấm lại thủ công cho một submission",
+        Description = "Tạo GradingJob mới với Trigger=ManualRegrade và enqueue ngay. " +
+                      "Nên gọi sau PUT /files để đảm bảo có file mới nhất.",
+        OperationId = "Grading_TriggerRegrade",
+        Tags = new[] { "CMS_Grading" })]
+    [ProducesResponseType(typeof(Result<TriggerRegradeResponseDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Result<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> TriggerRegrade(
+        [FromRoute] Guid id,
+        CancellationToken cancellationToken)
+    {
+        var r = await _grading.TriggerRegradeAsync(id, cancellationToken);
+        return StatusCode(r.GetHttpStatusCode(), r);
+    }
 }
+

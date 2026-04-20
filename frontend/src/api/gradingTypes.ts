@@ -14,7 +14,9 @@ export type ExamSessionListItem = {
   title: string;
   semesterId: string;
   semesterCode: string;
-  scheduledAtUtc: string;
+  startsAtUtc: string;
+  examDurationMinutes: number;
+  endsAtUtc: string;
   topicCount: number;
   questionCount: number;
   submissionCount: number;
@@ -48,7 +50,9 @@ export type ExamSessionDetail = {
   title: string;
   semesterId: string;
   semesterCode: string;
-  scheduledAtUtc: string;
+  startsAtUtc: string;
+  examDurationMinutes: number;
+  endsAtUtc: string;
   topics: ExamTopicDetail[];
 };
 
