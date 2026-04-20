@@ -29,6 +29,15 @@ export function submissionMaxScore(detail: ExamSubmissionDetail): number {
   return qs.reduce((a, q) => a + q.maxScore, 0);
 }
 
+/** Nhãn câu hỏi để admin chọn khi thay file zip (khớp API questionLabel). */
+export function questionLabelsForReplace(detail: ExamSubmissionDetail): string[] {
+  const fromFiles = detail.submissionFiles.map((f) => f.questionLabel);
+  const fromScores = detail.questionScores.map((q) => q.questionLabel);
+  const merged = [...new Set([...fromFiles, ...fromScores])].filter(Boolean);
+  if (merged.length) return merged.sort((a, b) => a.localeCompare(b, "vi"));
+  return ["Q1", "Q2"];
+}
+
 export function listItemMaxScore(): number {
   return 10;
 }

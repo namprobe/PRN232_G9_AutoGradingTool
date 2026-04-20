@@ -6,10 +6,16 @@ import { useApiMock } from "../config/env";
 function useHeaderMeta(): { title: string; subtitle: string } {
   const { pathname } = useLocation();
   if (pathname === "/") return { title: "Tổng quan", subtitle: "Thống kê nhanh và trạng thái pipeline chấm bài" };
+  if (pathname === "/semesters") return { title: "Học kỳ", subtitle: "Danh sách semester từ API CMS" };
+  if (pathname === "/system-flows")
+    return { title: "Luồng hệ thống", subtitle: "Entity + bốn luồng chính (SYSTEM_FLOWS.md)" };
+  if (pathname === "/grading-pack") return { title: "Pack chấm & asset", subtitle: "Tài liệu — REST pack sắp có" };
+  if (pathname.startsWith("/exam-sessions/")) return { title: "Chi tiết ca thi", subtitle: "Topic, câu hỏi và testcase" };
   if (pathname === "/exam-sessions") return { title: "Ca thi", subtitle: "Kỳ thi — phiên — chủ đề & câu hỏi" };
   if (pathname === "/submissions") return { title: "Bài nộp", subtitle: "Danh sách zip đã gửi và trạng thái chấm" };
   if (pathname === "/submissions/upload") return { title: "Tải lên bài thi", subtitle: "Hai file zip riêng cho Q1 và Q2" };
-  if (/^\/submissions\/[^/]+$/.test(pathname)) return { title: "Chi tiết bài nộp", subtitle: "Điểm số theo testcase & log" };
+  if (/^\/submissions\/[^/]+$/.test(pathname))
+    return { title: "Chi tiết bài nộp", subtitle: "WorkflowStatus, submissionFiles, điểm câu & testcase" };
   return { title: "CMS", subtitle: "Auto Grading Tool" };
 }
 
@@ -24,7 +30,16 @@ type NavItem = {
 
 const nav: NavItem[] = [
   { to: "/", end: true, label: "Tổng quan", icon: IconHome },
-  { to: "/exam-sessions", end: false, label: "Ca thi", icon: IconCalendar },
+  { to: "/system-flows", end: true, label: "Luồng hệ thống", icon: IconFlow },
+  { to: "/semesters", end: true, label: "Học kỳ", icon: IconBook },
+  {
+    to: "/exam-sessions",
+    end: false,
+    label: "Ca thi",
+    icon: IconCalendar,
+    isActive: (p) => p === "/exam-sessions" || p.startsWith("/exam-sessions/"),
+  },
+  { to: "/grading-pack", end: true, label: "Pack & asset", icon: IconBox },
   {
     to: "/submissions",
     end: true,
@@ -108,6 +123,36 @@ function IconHome() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
       <path d="M3 10.5L12 3l9 7.5V20a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1v-9.5z" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function IconFlow() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+      <circle cx="5" cy="12" r="2.5" />
+      <circle cx="12" cy="6" r="2.5" />
+      <circle cx="19" cy="12" r="2.5" />
+      <circle cx="12" cy="18" r="2.5" />
+      <path d="M7 11l3-3M14 8l3 3M17 13l-3 3M10 16l-3-3" />
+    </svg>
+  );
+}
+
+function IconBook() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+      <path d="M4 19.5A2.5 2.5 0 016.5 17H20" />
+      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z" />
+    </svg>
+  );
+}
+
+function IconBox() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+      <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
+      <path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12" />
     </svg>
   );
 }

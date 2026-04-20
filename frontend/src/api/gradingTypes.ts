@@ -84,6 +84,12 @@ export type ExamTestCaseScore = {
   message: string | null;
 };
 
+export type SubmissionFile = {
+  questionLabel: string;
+  storageRelativePath: string;
+  originalFileName: string | null;
+};
+
 export type ExamSubmissionDetail = {
   id: string;
   examSessionId: string;
@@ -93,8 +99,14 @@ export type ExamSubmissionDetail = {
   status: string;
   submittedAtUtc: string;
   totalScore: number | null;
-  q1ZipRelativePath: string | null;
-  q2ZipRelativePath: string | null;
+  submissionFiles: SubmissionFile[];
   questionScores: ExamQuestionScore[];
   testCaseScores: ExamTestCaseScore[];
+};
+
+export type TriggerRegradeResponse = {
+  gradingJobId: string;
+  trigger: string;
+  jobStatus: string;
+  message: string;
 };

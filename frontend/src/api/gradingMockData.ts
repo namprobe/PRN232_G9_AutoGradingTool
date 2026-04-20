@@ -5,6 +5,7 @@ import type {
   ExamSubmissionDetail,
   ExamSubmissionListItem,
   SemesterListItem,
+  TriggerRegradeResponse,
 } from "./gradingTypes";
 
 /** Trùng ExamGradingSeeder + docs GRADING_REST_API.md */
@@ -112,8 +113,10 @@ const sampleDetail: ExamSubmissionDetail = {
   status: "Completed",
   submittedAtUtc: "2026-04-15T07:42:11.000Z",
   totalScore: 8.5,
-  q1ZipRelativePath: "seed/demo-q1.zip",
-  q2ZipRelativePath: "seed/demo-q2.zip",
+  submissionFiles: [
+    { questionLabel: "Q1", storageRelativePath: "seed/demo-q1.zip", originalFileName: "q1.zip" },
+    { questionLabel: "Q2", storageRelativePath: "seed/demo-q2.zip", originalFileName: "q2.zip" },
+  ],
   questionScores: [
     { examQuestionId: q1Id, questionLabel: "Q1", score: 4.25, maxScore: 5, summary: "Seed" },
     { examQuestionId: q2Id, questionLabel: "Q2", score: 4.25, maxScore: 5, summary: "Seed" },
@@ -167,8 +170,10 @@ const sub2Detail: ExamSubmissionDetail = {
   status: "Running",
   submittedAtUtc: "2026-04-15T07:55:03.000Z",
   totalScore: null,
-  q1ZipRelativePath: "exam-submissions/mock/q1.zip",
-  q2ZipRelativePath: "exam-submissions/mock/q2.zip",
+  submissionFiles: [
+    { questionLabel: "Q1", storageRelativePath: "exam-submissions/mock/q1.zip", originalFileName: "q1.zip" },
+    { questionLabel: "Q2", storageRelativePath: "exam-submissions/mock/q2.zip", originalFileName: "q2.zip" },
+  ],
   questionScores: [],
   testCaseScores: [
     {
@@ -228,6 +233,30 @@ export function mockGetSubmission(id: string): ApiResult<ExamSubmissionDetail> {
 export function mockCreateSubmission(): ApiResult<string> {
   const id = crypto.randomUUID();
   return ok(id, "Đã nhận zip và chạy chấm stub (mock FE).");
+}
+
+export function mockReplaceSubmissionFile(submissionId: string, questionLabel: string): ApiResult<boolean> {
+  const x = submissionId.toLowerCase();
+  if (x !== DEMO_SAMPLE_SUBMISSION_ID.toLowerCase() && x !== MOCK_SUB2_ID.toLowerCase()) {
+    return fail("Không tìm thấy bài nộp.");
+  }
+  return ok(true, `Đã thay thế file ${questionLabel} (mock). Gọi POST /regrade để chấm lại.`);
+}
+
+export function mockTriggerRegrade(submissionId: string): ApiResult<TriggerRegradeResponse> {
+  const x = submissionId.toLowerCase();
+  if (x !== DEMO_SAMPLE_SUBMISSION_ID.toLowerCase() && x !== MOCK_SUB2_ID.toLowerCase()) {
+    return fail("Không tìm thấy bài nộp.");
+  }
+  return ok(
+    {
+      gradingJobId: crypto.randomUUID(),
+      trigger: "ManualRegrade",
+      jobStatus: "Completed",
+      message: "Chấm lại thành công (stub mock).",
+    },
+    "Chấm lại thành công (stub mock)."
+  );
 }
 
 export function delay(ms: number): Promise<void> {

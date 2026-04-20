@@ -1,16 +1,17 @@
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { listExamSessions, listSubmissions } from "../api/gradingApi";
 import type { ExamSessionListItem, ExamSubmissionListItem } from "../api/gradingTypes";
-import { DEMO_EXAM_SESSION_ID } from "../api/gradingMockData";
 import { StatusBadge } from "../components/StatusBadge";
 import { listItemMaxScore, workflowToQPair } from "../lib/gradingUi";
 
 export function SubmissionsListPage() {
   const { token } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlSessionId = searchParams.get("examSessionId");
   const [sessions, setSessions] = useState<ExamSessionListItem[]>([]);
-  const [sessionId, setSessionId] = useState(DEMO_EXAM_SESSION_ID);
+  const [sessionId, setSessionId] = useState("");
   const [rows, setRows] = useState<ExamSubmissionListItem[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -22,16 +23,29 @@ export function SubmissionsListPage() {
       if (cancelled) return;
       if (sr.isSuccess && sr.data?.length) {
         setSessions(sr.data);
-        const first = sr.data[0];
-        if (first && !sr.data.some((s) => s.id === sessionId)) setSessionId(first.id);
+        const list = sr.data;
+        const fromUrl = urlSessionId && list.some((s) => s.id === urlSessionId) ? urlSessionId : null;
+        setSessionId((prev) => {
+          if (fromUrl) return fromUrl;
+          if (prev && list.some((s) => s.id === prev)) return prev;
+          return list[0]!.id;
+        });
+      } else {
+        setSessions([]);
+        setSessionId("");
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [token, urlSessionId]);
 
   useEffect(() => {
+    if (!sessionId) {
+      setRows([]);
+      setLoading(false);
+      return;
+    }
     let cancelled = false;
     (async () => {
       setLoading(true);
@@ -46,6 +60,14 @@ export function SubmissionsListPage() {
       cancelled = true;
     };
   }, [token, sessionId]);
+
+  function onSessionChange(nextId: string) {
+    setSessionId(nextId);
+    const p = new URLSearchParams(searchParams);
+    if (nextId) p.set("examSessionId", nextId);
+    else p.delete("examSessionId");
+    setSearchParams(p, { replace: true });
+  }
 
   const sessionCode = sessions.find((s) => s.id === sessionId)?.code ?? "—";
 
@@ -63,7 +85,7 @@ export function SubmissionsListPage() {
                 id="filter-session"
                 className="ag-input"
                 value={sessionId}
-                onChange={(e) => setSessionId(e.target.value)}
+                onChange={(e) => onSessionChange(e.target.value)}
               >
                 {sessions.map((s) => (
                   <option key={s.id} value={s.id}>

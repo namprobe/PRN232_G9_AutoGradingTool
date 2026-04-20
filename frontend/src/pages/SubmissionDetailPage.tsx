@@ -1,10 +1,10 @@
 import { Link, useParams } from "react-router-dom";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
-import { getSubmission } from "../api/gradingApi";
+import { getSubmission, replaceSubmissionFile, triggerRegrade } from "../api/gradingApi";
 import type { ExamSubmissionDetail, ExamTestCaseScore } from "../api/gradingTypes";
 import { StatusBadge } from "../components/StatusBadge";
-import { submissionMaxScore, workflowToQPair } from "../lib/gradingUi";
+import { questionLabelsForReplace, submissionMaxScore, workflowToQPair } from "../lib/gradingUi";
 
 function outcomeToUi(outcome: string): "pass" | "fail" | "pending" | "error" {
   const o = (outcome || "").toLowerCase();
@@ -26,6 +26,26 @@ export function SubmissionDetailPage() {
   const [detail, setDetail] = useState<ExamSubmissionDetail | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [adminMsg, setAdminMsg] = useState<string | null>(null);
+  const [adminErr, setAdminErr] = useState<string | null>(null);
+  const [replaceLabel, setReplaceLabel] = useState("Q1");
+  const [replaceFile, setReplaceFile] = useState<File | null>(null);
+  const [replaceBusy, setReplaceBusy] = useState(false);
+  const [regradeBusy, setRegradeBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    if (!submissionId) return;
+    setErr(null);
+    const r = await getSubmission(token, submissionId);
+    if (!r.isSuccess || !r.data) {
+      setDetail(null);
+      setErr(r.message ?? "Không tải được chi tiết");
+    } else {
+      setDetail(r.data);
+      const labels = questionLabelsForReplace(r.data);
+      setReplaceLabel((prev) => (labels.includes(prev) ? prev : labels[0] ?? "Q1"));
+    }
+  }, [token, submissionId]);
 
   useEffect(() => {
     if (!submissionId) {
@@ -36,22 +56,51 @@ export function SubmissionDetailPage() {
     let cancelled = false;
     (async () => {
       setLoading(true);
-      setErr(null);
-      const r = await getSubmission(token, submissionId);
-      if (cancelled) return;
-      if (!r.isSuccess || !r.data) {
-        setDetail(null);
-        setErr(r.message ?? "Không tải được chi tiết");
-      } else setDetail(r.data);
-      setLoading(false);
+      await load();
+      if (!cancelled) setLoading(false);
     })();
     return () => {
       cancelled = true;
     };
-  }, [token, submissionId]);
+  }, [load, submissionId]);
 
   const maxScore = useMemo(() => (detail ? submissionMaxScore(detail) : 10), [detail]);
   const qPair = detail ? workflowToQPair(detail.status) : { q1: "pending" as const, q2: "pending" as const };
+  const labels = detail ? questionLabelsForReplace(detail) : ["Q1", "Q2"];
+
+  async function onReplaceSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!submissionId || !replaceFile) {
+      setAdminErr("Chọn file .zip.");
+      return;
+    }
+    setAdminErr(null);
+    setAdminMsg(null);
+    setReplaceBusy(true);
+    const r = await replaceSubmissionFile(token, submissionId, replaceLabel, replaceFile);
+    setReplaceBusy(false);
+    if (!r.isSuccess) setAdminErr(r.message ?? "Thay file thất bại");
+    else {
+      setAdminMsg(r.message ?? "Đã thay file.");
+      setReplaceFile(null);
+      await load();
+    }
+  }
+
+  async function onRegrade() {
+    if (!submissionId) return;
+    setAdminErr(null);
+    setAdminMsg(null);
+    setRegradeBusy(true);
+    const r = await triggerRegrade(token, submissionId);
+    setRegradeBusy(false);
+    if (!r.isSuccess) setAdminErr(r.message ?? "Trigger regrade thất bại");
+    else {
+      const extra = r.data ? ` Job ${r.data.gradingJobId} · ${r.data.jobStatus}.` : "";
+      setAdminMsg((r.message ?? "Đã enqueue chấm lại.") + extra);
+      await load();
+    }
+  }
 
   if (loading) {
     return (
@@ -76,6 +125,8 @@ export function SubmissionDetailPage() {
   const pct =
     detail.totalScore != null && maxScore > 0 ? Math.round((detail.totalScore / maxScore) * 100) : null;
   const cases = detail.testCaseScores;
+  const sessionHref = `/exam-sessions/${detail.examSessionId}`;
+  const subsHref = `/submissions?examSessionId=${encodeURIComponent(detail.examSessionId)}`;
 
   return (
     <div className="ag-stack ag-stack--lg">
@@ -89,9 +140,16 @@ export function SubmissionDetailPage() {
             <code className="ag-code ag-code--lg">{detail.studentCode}</code>
           </h2>
           <p className="ag-detail-head__meta">
-            Ca <code className="ag-code">{detail.examSessionCode}</code> · Pipeline{" "}
+            Ca <code className="ag-code">{detail.examSessionCode}</code> · WorkflowStatus{" "}
             <code className="ag-code ag-code--sm">{detail.status}</code> · Nộp lúc{" "}
-            {new Date(detail.submittedAtUtc).toLocaleString("vi-VN")}
+            {new Date(detail.submittedAtUtc).toLocaleString("vi-VN")} ·{" "}
+            <Link to={sessionHref} className="ag-linkbtn">
+              Cấu trúc đề
+            </Link>{" "}
+            ·{" "}
+            <Link to={subsHref} className="ag-linkbtn">
+              Cùng ca thi
+            </Link>
           </p>
         </div>
         <div className="ag-detail-head__side">
@@ -128,6 +186,149 @@ export function SubmissionDetailPage() {
           )}
         </div>
       </div>
+
+      {adminErr ? (
+        <div className="ag-alert ag-alert--err" role="alert">
+          {adminErr}
+        </div>
+      ) : null}
+      {adminMsg ? (
+        <div className="ag-alert ag-alert--ok" role="status">
+          {adminMsg}
+        </div>
+      ) : null}
+
+      <section className="ag-card ag-card--flush ag-animate-in">
+        <div className="ag-card__head ag-card__head--row">
+          <div>
+            <h3 className="ag-card__title">File đã nộp</h3>
+            <p className="ag-card__desc">submissionFiles từ GET submissions/{"{id}"}</p>
+          </div>
+        </div>
+        <div className="ag-table-wrap">
+          <table className="ag-table">
+            <thead>
+              <tr>
+                <th>Câu</th>
+                <th>Tên gốc</th>
+                <th>Đường dẫn lưu</th>
+              </tr>
+            </thead>
+            <tbody>
+              {detail.submissionFiles.length === 0 ? (
+                <tr>
+                  <td colSpan={3} className="ag-table__muted">
+                    Chưa có bản ghi file (có thể bài cũ trước khi có ExamSubmissionFile)
+                  </td>
+                </tr>
+              ) : (
+                detail.submissionFiles.map((f) => (
+                  <tr key={`${f.questionLabel}-${f.storageRelativePath}`}>
+                    <td>
+                      <span className="ag-qtag">{f.questionLabel}</span>
+                    </td>
+                    <td>{f.originalFileName ?? "—"}</td>
+                    <td className="ag-table__muted">
+                      <code className="ag-code ag-code--sm">{f.storageRelativePath}</code>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="ag-card ag-animate-in">
+        <div className="ag-card__head">
+          <h3 className="ag-card__title">Admin — thay file &amp; chấm lại</h3>
+          <p className="ag-card__desc">
+            PUT /submissions/{"{id}"}/files (multipart) rồi POST /submissions/{"{id}"}/regrade — khớp Swagger CMS_Grading
+          </p>
+        </div>
+        <div className="ag-grid2" style={{ alignItems: "start" }}>
+          <form className="ag-stack ag-stack--sm" onSubmit={onReplaceSubmit}>
+            <div className="ag-field">
+              <label className="ag-label" htmlFor="replace-label">
+                Nhãn câu (questionLabel)
+              </label>
+              <select
+                id="replace-label"
+                className="ag-input"
+                value={replaceLabel}
+                onChange={(e) => setReplaceLabel(e.target.value)}
+              >
+                {labels.map((lb) => (
+                  <option key={lb} value={lb}>
+                    {lb}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="ag-field">
+              <label className="ag-label" htmlFor="replace-zip">
+                File zip thay thế
+              </label>
+              <input
+                id="replace-zip"
+                className="ag-input"
+                type="file"
+                accept=".zip,application/zip"
+                onChange={(e) => setReplaceFile(e.target.files?.[0] ?? null)}
+              />
+            </div>
+            <button type="submit" className="ag-btn ag-btn--secondary" disabled={replaceBusy}>
+              {replaceBusy ? "Đang tải…" : "Thay file zip"}
+            </button>
+          </form>
+          <div className="ag-stack ag-stack--sm">
+            <p className="ag-table__muted" style={{ margin: 0 }}>
+              Sau khi thay file, backend đặt workflow về Pending và xóa điểm cũ — cần bấm chấm lại.
+            </p>
+            <button type="button" className="ag-btn ag-btn--primary" disabled={regradeBusy} onClick={() => void onRegrade()}>
+              {regradeBusy ? "Đang chấm…" : "Trigger chấm lại (regrade)"}
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {detail.questionScores.length > 0 ? (
+        <section className="ag-card ag-card--flush ag-animate-in">
+          <div className="ag-card__head ag-card__head--row">
+            <div>
+              <h3 className="ag-card__title">Điểm theo câu</h3>
+              <p className="ag-card__desc">Tổng hợp questionScores</p>
+            </div>
+          </div>
+          <div className="ag-table-wrap">
+            <table className="ag-table">
+              <thead>
+                <tr>
+                  <th>Câu</th>
+                  <th>Điểm</th>
+                  <th>Ghi chú</th>
+                </tr>
+              </thead>
+              <tbody>
+                {detail.questionScores.map((q) => (
+                  <tr key={q.examQuestionId}>
+                    <td>
+                      <span className="ag-qtag">{q.questionLabel}</span>
+                    </td>
+                    <td>
+                      <span className="ag-score">
+                        {q.score}
+                        <span className="ag-score__max">/{q.maxScore}</span>
+                      </span>
+                    </td>
+                    <td className="ag-table__muted">{q.summary ?? "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
 
       <section className="ag-card ag-card--flush ag-animate-in">
         <div className="ag-card__head ag-card__head--row">

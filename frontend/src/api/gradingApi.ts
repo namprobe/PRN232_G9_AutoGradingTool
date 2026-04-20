@@ -7,6 +7,7 @@ import type {
   ExamSubmissionDetail,
   ExamSubmissionListItem,
   SemesterListItem,
+  TriggerRegradeResponse,
 } from "./gradingTypes";
 import {
   delay,
@@ -15,7 +16,9 @@ import {
   mockGetExamSession,
   mockGetSubmission,
   mockListSubmissions,
+  mockReplaceSubmissionFile,
   mockSemesters,
+  mockTriggerRegrade,
 } from "./gradingMockData";
 
 async function maybeDelay(): Promise<void> {
@@ -86,4 +89,41 @@ export async function createSubmissionZip(
     headers,
   });
   return (await res.json()) as ApiResult<string>;
+}
+
+export async function replaceSubmissionFile(
+  token: string | null,
+  submissionId: string,
+  questionLabel: string,
+  zipFile: File
+): Promise<ApiResult<boolean>> {
+  if (useApiMock()) {
+    await delay(350);
+    return mockReplaceSubmissionFile(submissionId, questionLabel);
+  }
+  const formData = new FormData();
+  formData.append("questionLabel", questionLabel);
+  formData.append("zipFile", zipFile);
+  const headers = new Headers();
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  const res = await fetch(`${baseUrl()}/api/cms/grading/submissions/${submissionId}/files`, {
+    method: "PUT",
+    body: formData,
+    headers,
+  });
+  return (await res.json()) as ApiResult<boolean>;
+}
+
+export async function triggerRegrade(
+  token: string | null,
+  submissionId: string
+): Promise<ApiResult<TriggerRegradeResponse>> {
+  if (useApiMock()) {
+    await delay(500);
+    return mockTriggerRegrade(submissionId);
+  }
+  return apiFetch<TriggerRegradeResponse>(`/api/cms/grading/submissions/${submissionId}/regrade`, {
+    method: "POST",
+    token,
+  });
 }
