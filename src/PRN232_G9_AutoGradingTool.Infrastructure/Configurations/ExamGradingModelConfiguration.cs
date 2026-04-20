@@ -137,6 +137,7 @@ public static class ExamGradingModelConfiguration
         {
             e.ToTable("grading_jobs");
             e.Property(x => x.JobStatus).HasColumnName("job_status").HasConversion<int>();
+            e.Property(x => x.Trigger).HasColumnName("trigger").HasConversion<int>().HasDefaultValue(GradingJobTrigger.SessionEnd);
             e.Property(x => x.HangfireJobId).HasMaxLength(128);
             e.Property(x => x.ErrorMessage).HasMaxLength(4000);
             e.Property(x => x.StartedAtUtc).HasColumnType("timestamp with time zone");

@@ -1,31 +1,43 @@
 # Các luồng chính — PRN232 Auto Grading Tool
 
-> Tài liệu này mô tả **ba luồng nghiệp vụ chính** theo thứ tự thời gian thực tế:  
+> Tài liệu này mô tả **bốn luồng nghiệp vụ chính** theo thứ tự thực tế:  
 > 1. Proctor chuẩn bị ca thi  
-> 2. Sinh viên nộp bài (qua hệ thống nộp bài riêng)  
-> 3. Hệ thống tự chấm sau khi ca thi kết thúc  
+> 2. Sinh viên nộp bài (qua hệ thống nộp bài / giả lập)  
+> 3. **Chấm tự động** — hệ thống tự kích hoạt khi `EndsAtUtc` đến (`GradingJobTrigger=SessionEnd`)  
+> 4. **Chấm thủ công** — Admin upload lại file + trigger chấm riêng lẻ (`GradingJobTrigger=ManualRegrade`)  
+>
+> Luồng 3 và 4 khác nhau ở **nguồn trigger** nhưng dùng chung pipeline chấm (GradeSubmissionJob).
 
 ---
 
 ## Tổng quan hệ thống
 
 ```
-┌─────────────────────┐     ┌────────────────────────────┐
-│  Hệ thống nộp bài   │     │  Auto Grading Tool (dự án) │
-│  (của trường/FPT)   │     │                            │
-│                     │     │  ┌─────────┐  ┌─────────┐  │
-│  SV nộp zip qua     │────▶│  │ Storage │  │Postgres │  │
-│  portal thi         │     │  └────┬────┘  └────┬────┘  │
-│  (ngoài scope dự án)│     │       │             │       │
-└─────────────────────┘     │  ┌────▼─────────────▼────┐  │
-                             │  │   API + Hangfire Worker│  │
-                             │  └───────────────────────┘  │
-                             └────────────────────────────┘
+┌─────────────────────┐     ┌────────────────────────────────────────────────┐
+│  Hệ thống nộp bài   │     │         Auto Grading Tool (dự án)              │
+│  (của trường/FPT)   │     │                                                │
+│                     │     │  ┌─────────┐  ┌─────────┐                      │
+│  SV nộp zip qua     │────▶│  │ Storage │  │Postgres │                      │
+│  portal thi         │     │  └────┬────┘  └────┬────┘                      │
+│  (ngoài scope dự án)│     │       │             │                           │
+└─────────────────────┘     │  ┌────▼─────────────▼───────────────────────┐  │
+                             │  │   API + Hangfire Worker                   │  │
+                             │  │                                           │  │
+                             │  │  Trigger 1: SessionEnd (tự động)          │  │
+                             │  │  Trigger 2: ManualRegrade (admin)         │  │
+                             │  └───────────────────────────────────────────┘  │
+                             └────────────────────────────────────────────────┘
 ```
 
 **Lưu ý phạm vi:** Dự án này là **hệ thống chấm bài**, không phải hệ thống nộp bài.  
 - Sinh viên nộp bài qua portal thi của FPT (hoặc một ứng dụng giả lập).  
 - Auto Grading Tool nhận file zip đã có sẵn trên storage, rồi chạy pipeline chấm.
+
+**Hai cơ chế trigger chấm bài** (thực tế ở FPT):
+| Trigger | Mô tả | Khi nào |
+|---------|-------|---------|
+| `SessionEnd (0)` | Tự động khi ca kết thúc — chấm hàng loạt tất cả bài cuối | Sau `EndsAtUtc` |
+| `ManualRegrade (1)` | Admin upload lại file + trigger thủ công cho 1 SV | Khi SV gặp sự cố, gửi bài qua mail |
 
 ---
 
@@ -141,10 +153,10 @@ Chấm theo bài nộp **cuối cùng** trước `EndsAtUtc`.
 
 ---
 
-## Luồng 3 — Chấm bài tự động (sau khi ca thi kết thúc)
+## Luồng 3 — Chấm tự động (SessionEnd trigger)
 
 **Actor:** Hangfire Worker (background, không có người kích hoạt thủ công)  
-**Trigger:** `EndsAtUtc` của ca thi  
+**Trigger:** `EndsAtUtc` của ca thi — `GradingJobTrigger=SessionEnd`  
 **Kết quả:** Mỗi submission có `WorkflowStatus=Completed/Failed`, điểm ghi vào `exam_question_scores` và `exam_test_case_scores`.
 
 ### 3a. Schedule Job lúc tạo ca thi
@@ -173,7 +185,7 @@ SummarizeExamResultJob(examSessionId)
   ├─③ Load ExamGradingPack đang IsActive
   │
   ├─④ Với mỗi submission:
-  │     a. Tạo GradingJob { JobStatus=Queued, ExamGradingPackId=activePackId }
+  │     a. Tạo GradingJob { JobStatus=Queued, Trigger=SessionEnd, ExamGradingPackId=activePackId }
   │     b. BackgroundJob.Enqueue<GradeSubmissionJob>(x => x.ExecuteAsync(gradingJobId))
   │     c. Cập nhật GradingJob.HangfireJobId = jobId trả về
   │     d. Cập nhật submission.WorkflowStatus = Queued
@@ -245,6 +257,76 @@ Mỗi lần retry:
 
 ---
 
+## Luồng 4 — Chấm thủ công (ManualRegrade trigger)
+
+**Actor:** Admin / Proctor (qua Swagger/Postman hoặc CMS)  
+**Trigger:** Admin upload file mới → gọi regrade API — `GradingJobTrigger=ManualRegrade`  
+**Khi nào dùng:** SV gặp sự cố kỹ thuật trong ca thi, không nộp được qua portal, và gửi file bài qua email / kênh khác.
+
+### 4a. Các bước thực hiện
+
+```
+Admin
+  │
+  ├─① (Tuỳ chọn) Tìm submission cần regrade
+  │     GET /api/cms/grading/submissions?examSessionId={id}
+  │     → Lấy submissionId cần xử lý
+  │
+  ├─② Upload lại file zip cho câu cần sửa
+  │     PUT /api/cms/grading/submissions/{submissionId}/files
+  │     multipart/form-data:
+  │       questionLabel: "Q1"   ← Q1 hoặc Q2
+  │       zipFile: [file]
+  │
+  │     Xử lý phía server:
+  │     - KHÔNG kiểm tra EndsAtUtc (bypass deadline)
+  │     - Xoá ExamSubmissionFile cũ cùng questionLabel
+  │     - Upload file mới lên storage
+  │     - Tạo ExamSubmissionFile mới
+  │     - Reset submission.WorkflowStatus = Pending
+  │     - Response 200 OK { data: true, message: "Đã thay file Q1. Gọi POST /regrade để chấm lại." }
+  │
+  │     → Có thể gọi lại nhiều lần cho Q2, Q3, ... trước khi trigger
+  │
+  └─③ Trigger chấm lại
+        POST /api/cms/grading/submissions/{submissionId}/regrade
+        (không cần body)
+
+        Xử lý phía server:
+        1. Kiểm tra submission có SubmissionFiles không
+        2. Load ExamGradingPack IsActive
+        3. Tạo GradingJob {
+             Trigger = ManualRegrade,      ← khác với SessionEnd
+             JobStatus = Queued,
+             ExamGradingPackId = activePack.Id
+           }
+        4. BackgroundJob.Enqueue<GradeSubmissionJob>(jobId)  [TODO P3]
+           (tạm thời: chạy stub chấm ngay đồng bộ)
+        5. Cập nhật submission.WorkflowStatus = Queued → Running → Completed/Failed
+        6. Response 200 OK {
+             data: {
+               gradingJobId: "...",
+               trigger: "ManualRegrade",
+               jobStatus: "Completed",   ← hoặc "Failed"
+               message: "Chấm lại thành công (stub)."
+             }
+           }
+```
+
+### 4b. So sánh Luồng 3 vs Luồng 4
+
+| Điểm so sánh | Luồng 3 (SessionEnd) | Luồng 4 (ManualRegrade) |
+|---|---|---|
+| Ai trigger | Hangfire tự động | Admin gọi API |
+| Thời điểm | Sau `EndsAtUtc` | Bất kỳ lúc nào |
+| Số submission | Tất cả `Pending` của session | 1 submission cụ thể |
+| File nguồn | Bài SV tự nộp qua portal | Admin upload thay thế |
+| Kiểm tra deadline | Không (SV đã nộp rồi) | Không (admin bypass) |
+| `grading_jobs.trigger` | `0 (SessionEnd)` | `1 (ManualRegrade)` |
+| Pipeline chấm | Giống nhau — GradeSubmissionJob | Giống nhau |
+
+---
+
 ## ERD tóm tắt (các bảng liên quan)
 
 ```
@@ -273,6 +355,7 @@ exam_sessions
          └──▶ grading_jobs              ← lần chạy chấm
                 hangfire_job_id
                 job_status: Queued → Running → Completed/Failed
+                trigger: SessionEnd(0) | ManualRegrade(1)   ← NEW
                 retry_count
                 │
                 └──▶ grading_job_logs   ← log từng phase
@@ -295,6 +378,10 @@ Vì hệ thống FPT không có sẵn, nhóm dùng **Postman / Swagger** để g
 | 4 | Nộp bài (SV 2) | `POST /api/cms/grading/submissions` |
 | 5 | Chờ `EndsAtUtc` — Hangfire tự trigger | Quan sát Hangfire Dashboard `/hangfire` |
 | 6 | Xem kết quả | `GET /api/cms/grading/submissions/{id}` |
+| — | **Luồng 4: Admin regrade thủ công** | — |
+| 7 | Upload lại file Q1 cho SV gặp sự cố | `PUT /api/cms/grading/submissions/{id}/files` |
+| 8 | Trigger chấm lại ngay | `POST /api/cms/grading/submissions/{id}/regrade` |
+| 9 | Xem kết quả regrade | `GET /api/cms/grading/submissions/{id}` |
 
 **Seed data sẵn có** (bật `DataSeeding__EnableSeeding=true`):
 - Học kỳ: `SPRING2026`

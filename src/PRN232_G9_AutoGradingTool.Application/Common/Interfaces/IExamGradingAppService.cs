@@ -24,4 +24,22 @@ public interface IExamGradingAppService
         IFormFile q1Zip,
         IFormFile q2Zip,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Admin upload lại file zip cho một câu của submission đã có.
+    /// Không kiểm tra EndsAtUtc — dùng cho trường hợp SV gửi bài qua mail sau sự cố.
+    /// </summary>
+    Task<Result<bool>> ReplaceSubmissionFileAsync(
+        Guid submissionId,
+        string questionLabel,
+        IFormFile zipFile,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Trigger chấm lại thủ công cho một submission (sau khi đã upload lại file).
+    /// Tạo GradingJob mới với Trigger=ManualRegrade và enqueue Hangfire ngay lập tức.
+    /// </summary>
+    Task<Result<TriggerRegradeResponseDto>> TriggerRegradeAsync(
+        Guid submissionId,
+        CancellationToken cancellationToken = default);
 }

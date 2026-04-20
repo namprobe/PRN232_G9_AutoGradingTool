@@ -14,6 +14,9 @@ public class GradingJob : BaseEntity
 
     public GradingJobStatus JobStatus { get; set; } = GradingJobStatus.Queued;
 
+    /// <summary>Nguồn trigger: tự động sau ca thi hay admin regrade thủ công.</summary>
+    public GradingJobTrigger Trigger { get; set; } = GradingJobTrigger.SessionEnd;
+
     /// <summary>Hangfire string job ID — dùng để monitor/cancel trên Hangfire dashboard.</summary>
     public string? HangfireJobId { get; set; }
 

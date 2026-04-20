@@ -66,3 +66,10 @@ public record ExamTestCaseScoreDto(
     decimal MaxPoints,
     string Outcome,
     string? Message);
+
+/// <summary>Response khi trigger manual regrade thành công.</summary>
+public record TriggerRegradeResponseDto(
+    Guid GradingJobId,
+    string Trigger,
+    string JobStatus,
+    string Message);
