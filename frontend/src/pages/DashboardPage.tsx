@@ -21,7 +21,7 @@ export function DashboardPage() {
       const subs = await listSubmissions(token, DEMO_EXAM_SESSION_ID);
       if (cancelled) return;
       if (es.isSuccess && es.data) {
-        setActiveSessions(es.data.filter((x) => inferSessionStatus(x.scheduledAtUtc) === "active").length);
+        setActiveSessions(es.data.filter((x) => inferSessionStatus(x.startsAtUtc, x.endsAtUtc) === "active").length);
       }
       if (subs.isSuccess && subs.data) {
         setTotalSubs(subs.data.length);

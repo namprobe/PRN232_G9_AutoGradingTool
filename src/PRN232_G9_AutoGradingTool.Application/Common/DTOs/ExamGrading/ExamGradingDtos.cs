@@ -8,7 +8,9 @@ public record ExamSessionListItemDto(
     string Title,
     Guid SemesterId,
     string SemesterCode,
-    DateTime ScheduledAtUtc,
+    DateTime StartsAtUtc,
+    int ExamDurationMinutes,
+    DateTime EndsAtUtc,
     int TopicCount,
     int QuestionCount,
     int SubmissionCount);
@@ -19,7 +21,9 @@ public record ExamSessionDetailDto(
     string Title,
     Guid SemesterId,
     string SemesterCode,
-    DateTime ScheduledAtUtc,
+    DateTime StartsAtUtc,
+    int ExamDurationMinutes,
+    DateTime EndsAtUtc,
     IReadOnlyList<ExamTopicDetailDto> Topics);
 
 public record ExamTopicDetailDto(Guid Id, string Title, int SortOrder, IReadOnlyList<ExamQuestionDetailDto> Questions);
@@ -46,10 +50,11 @@ public record ExamSubmissionDetailDto(
     string Status,
     DateTime SubmittedAtUtc,
     decimal? TotalScore,
-    string? Q1ZipRelativePath,
-    string? Q2ZipRelativePath,
+    IReadOnlyList<SubmissionFileDto> SubmissionFiles,
     IReadOnlyList<ExamQuestionScoreDto> QuestionScores,
     IReadOnlyList<ExamTestCaseScoreDto> TestCaseScores);
+
+public record SubmissionFileDto(string QuestionLabel, string StorageRelativePath, string? OriginalFileName);
 
 public record ExamQuestionScoreDto(Guid ExamQuestionId, string QuestionLabel, decimal Score, decimal MaxScore, string? Summary);
 

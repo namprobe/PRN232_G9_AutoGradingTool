@@ -30,6 +30,7 @@ function fail<T>(message: string, errorCode = "NotFound"): ApiResult<T> {
 }
 
 const scheduledAt = "2026-05-26T08:00:00.000Z";
+const endsAt = "2026-05-26T09:50:00.000Z"; // 90p làm bài + 20p dự phòng
 
 export const mockSemesters: ApiResult<SemesterListItem[]> = ok([
   {
@@ -48,7 +49,9 @@ export const mockExamSessions: ApiResult<ExamSessionListItem[]> = ok([
     title: "Practical Exam — PRN232 (demo)",
     semesterId: DEMO_SEMESTER_ID,
     semesterCode: "SPRING2026",
-    scheduledAtUtc: scheduledAt,
+    startsAtUtc: scheduledAt,
+    examDurationMinutes: 90,
+    endsAtUtc: endsAt,
     topicCount: 1,
     questionCount: 2,
     submissionCount: 2,
@@ -61,7 +64,9 @@ const sessionDetail: ExamSessionDetail = {
   title: "Practical Exam — PRN232 (demo)",
   semesterId: DEMO_SEMESTER_ID,
   semesterCode: "SPRING2026",
-  scheduledAtUtc: scheduledAt,
+  startsAtUtc: scheduledAt,
+  examDurationMinutes: 90,
+  endsAtUtc: endsAt,
   topics: [
     {
       id: topicId,

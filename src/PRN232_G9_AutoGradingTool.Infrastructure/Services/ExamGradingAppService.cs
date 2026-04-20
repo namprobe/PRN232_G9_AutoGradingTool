@@ -43,14 +43,16 @@ public class ExamGradingAppService : IExamGradingAppService
             q = q.Where(x => x.SemesterId == semesterId.Value);
 
         var rows = await q
-            .OrderByDescending(x => x.ScheduledAtUtc)
+            .OrderByDescending(x => x.StartsAtUtc)
             .Select(x => new ExamSessionListItemDto(
                 x.Id,
                 x.Code,
                 x.Title,
                 x.SemesterId,
                 x.Semester.Code,
-                x.ScheduledAtUtc,
+                x.StartsAtUtc,
+                x.ExamDurationMinutes,
+                x.EndsAtUtc,
                 x.Topics.Count,
                 x.Topics.SelectMany(t => t.Questions).Count(),
                 x.Submissions.Count))
@@ -88,7 +90,9 @@ public class ExamGradingAppService : IExamGradingAppService
             session.Title,
             session.SemesterId,
             session.Semester.Code,
-            session.ScheduledAtUtc,
+            session.StartsAtUtc,
+            session.ExamDurationMinutes,
+            session.EndsAtUtc,
             topics);
 
         return Result<ExamSessionDetailDto>.Success(dto, "OK");
@@ -120,6 +124,7 @@ public class ExamGradingAppService : IExamGradingAppService
     {
         var sub = await _db.ExamSubmissions.AsNoTracking()
             .Include(x => x.ExamSession)
+            .Include(x => x.SubmissionFiles)
             .Include(x => x.QuestionScores).ThenInclude(qs => qs.ExamQuestion)
             .Include(x => x.TestCaseScores).ThenInclude(ts => ts.ExamTestCase).ThenInclude(tc => tc!.ExamQuestion)
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
@@ -144,6 +149,11 @@ public class ExamGradingAppService : IExamGradingAppService
                 x.Message))
             .ToList();
 
+        var files = sub.SubmissionFiles
+            .OrderBy(x => x.QuestionLabel)
+            .Select(x => new SubmissionFileDto(x.QuestionLabel, x.StorageRelativePath, x.OriginalFileName))
+            .ToList();
+
         var dto = new ExamSubmissionDetailDto(
             sub.Id,
             sub.ExamSessionId,
@@ -153,8 +163,7 @@ public class ExamGradingAppService : IExamGradingAppService
             sub.WorkflowStatus.ToString(),
             sub.SubmittedAtUtc,
             sub.TotalScore,
-            sub.Q1ZipRelativePath,
-            sub.Q2ZipRelativePath,
+            files,
             qScores,
             tcScores);
 
@@ -228,8 +237,27 @@ public class ExamGradingAppService : IExamGradingAppService
             if (string.IsNullOrEmpty(p1) || string.IsNullOrEmpty(p2))
                 throw new InvalidOperationException("Upload trả về đường dẫn rỗng.");
 
-            submission.Q1ZipRelativePath = p1;
-            submission.Q2ZipRelativePath = p2;
+            _db.ExamSubmissionFiles.AddRange(
+                new ExamSubmissionFile
+                {
+                    Id = Guid.NewGuid(),
+                    ExamSubmissionId = submission.Id,
+                    QuestionLabel = "Q1",
+                    StorageRelativePath = p1,
+                    OriginalFileName = q1Zip.FileName,
+                    CreatedAt = DateTime.UtcNow,
+                    Status = EntityStatusEnum.Active
+                },
+                new ExamSubmissionFile
+                {
+                    Id = Guid.NewGuid(),
+                    ExamSubmissionId = submission.Id,
+                    QuestionLabel = "Q2",
+                    StorageRelativePath = p2,
+                    OriginalFileName = q2Zip.FileName,
+                    CreatedAt = DateTime.UtcNow,
+                    Status = EntityStatusEnum.Active
+                });
             submission.WorkflowStatus = ExamSubmissionStatus.Running;
 
             if (gradingJobId.HasValue)

@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using PRN232_G9_AutoGradingTool.Infrastructure.Context;
@@ -11,9 +12,11 @@ using PRN232_G9_AutoGradingTool.Infrastructure.Context;
 namespace PRN232_G9_AutoGradingTool.Infrastructure.Migrations.PRN232_G9_AutoGradingTool
 {
     [DbContext(typeof(PRN232_G9_AutoGradingToolDbContext))]
-    partial class PRN232_G9_AutoGradingToolDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260420055011_GradingJobLogAndEvidence")]
+    partial class GradingJobLogAndEvidence
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

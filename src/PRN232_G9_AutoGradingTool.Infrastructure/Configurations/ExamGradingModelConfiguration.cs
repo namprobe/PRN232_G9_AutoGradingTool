@@ -21,7 +21,9 @@ public static class ExamGradingModelConfiguration
             e.ToTable("exam_sessions");
             e.Property(x => x.Code).HasMaxLength(64).IsRequired();
             e.Property(x => x.Title).HasMaxLength(512).IsRequired();
-            e.Property(x => x.ScheduledAtUtc).HasColumnType("timestamp with time zone");
+            e.Property(x => x.StartsAtUtc).HasColumnType("timestamp with time zone");
+            e.Property(x => x.ExamDurationMinutes).HasDefaultValue(90);
+            e.Property(x => x.EndsAtUtc).HasColumnType("timestamp with time zone");
             e.HasOne(x => x.Semester).WithMany(x => x.ExamSessions).HasForeignKey(x => x.SemesterId)
                 .OnDelete(DeleteBehavior.Restrict);
             e.HasIndex(x => new { x.SemesterId, x.Code }).IsUnique();
@@ -59,8 +61,6 @@ public static class ExamGradingModelConfiguration
             e.ToTable("exam_submissions");
             e.Property(x => x.StudentCode).HasMaxLength(32).IsRequired();
             e.Property(x => x.StudentName).HasMaxLength(256);
-            e.Property(x => x.Q1ZipRelativePath).HasMaxLength(1024);
-            e.Property(x => x.Q2ZipRelativePath).HasMaxLength(1024);
             e.Property(x => x.TotalScore).HasPrecision(9, 2);
             e.Property(x => x.SubmittedAtUtc).HasColumnType("timestamp with time zone");
             e.Property(x => x.WorkflowStatus).HasColumnName("workflow_status").HasConversion<int>();
@@ -91,6 +91,7 @@ public static class ExamGradingModelConfiguration
             e.Property(x => x.MaxPoints).HasPrecision(9, 2);
             e.Property(x => x.Message).HasMaxLength(4000);
             e.Property(x => x.Outcome).HasConversion<int>();
+            e.Property(x => x.RawOutputJson).HasColumnType("text");
             e.HasOne(x => x.ExamSubmission).WithMany(x => x.TestCaseScores).HasForeignKey(x => x.ExamSubmissionId)
                 .OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.ExamTestCase).WithMany(x => x.Scores).HasForeignKey(x => x.ExamTestCaseId)
@@ -136,6 +137,7 @@ public static class ExamGradingModelConfiguration
         {
             e.ToTable("grading_jobs");
             e.Property(x => x.JobStatus).HasColumnName("job_status").HasConversion<int>();
+            e.Property(x => x.HangfireJobId).HasMaxLength(128);
             e.Property(x => x.ErrorMessage).HasMaxLength(4000);
             e.Property(x => x.StartedAtUtc).HasColumnType("timestamp with time zone");
             e.Property(x => x.FinishedAtUtc).HasColumnType("timestamp with time zone");
@@ -145,6 +147,32 @@ public static class ExamGradingModelConfiguration
                 .OnDelete(DeleteBehavior.Restrict);
             e.HasIndex(x => x.ExamSubmissionId);
             e.HasIndex(x => new { x.ExamSubmissionId, x.JobStatus });
+            e.HasIndex(x => x.HangfireJobId);
+        });
+
+        modelBuilder.Entity<ExamSubmissionFile>(e =>
+        {
+            e.ToTable("exam_submission_files");
+            e.Property(x => x.QuestionLabel).HasMaxLength(16).IsRequired();
+            e.Property(x => x.StorageRelativePath).HasMaxLength(1024).IsRequired();
+            e.Property(x => x.OriginalFileName).HasMaxLength(512);
+            e.HasOne(x => x.ExamSubmission).WithMany(x => x.SubmissionFiles).HasForeignKey(x => x.ExamSubmissionId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => new { x.ExamSubmissionId, x.QuestionLabel }).IsUnique();
+        });
+
+        modelBuilder.Entity<GradingJobLog>(e =>
+        {
+            e.ToTable("grading_job_logs");
+            e.Property(x => x.Phase).HasConversion<int>();
+            e.Property(x => x.Level).HasConversion<int>();
+            e.Property(x => x.Message).HasMaxLength(2000).IsRequired();
+            e.Property(x => x.DetailJson).HasColumnType("text");
+            e.Property(x => x.OccurredAtUtc).HasColumnType("timestamp with time zone");
+            e.HasOne(x => x.GradingJob).WithMany(x => x.Logs).HasForeignKey(x => x.GradingJobId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => new { x.GradingJobId, x.Phase });
+            e.HasIndex(x => new { x.GradingJobId, x.OccurredAtUtc });
         });
     }
 }

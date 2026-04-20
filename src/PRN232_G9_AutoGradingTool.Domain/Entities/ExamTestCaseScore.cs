@@ -15,4 +15,7 @@ public class ExamTestCaseScore : BaseEntity
     public decimal MaxPoints { get; set; }
     public ExamTestCaseOutcome Outcome { get; set; } = ExamTestCaseOutcome.Pending;
     public string? Message { get; set; }
+
+    /// <summary>Raw Newman assertion JSON hoặc HTTP response detail để debug kết quả.</summary>
+    public string? RawOutputJson { get; set; }
 }

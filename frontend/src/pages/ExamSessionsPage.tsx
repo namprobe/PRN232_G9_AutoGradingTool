@@ -116,13 +116,13 @@ export function ExamSessionsPage() {
                       <span className="ag-table__strong">{row.title}</span>
                     </td>
                     <td>{row.semesterCode}</td>
-                    <td className="ag-table__muted">{new Date(row.scheduledAtUtc).toLocaleString("vi-VN")}</td>
+                    <td className="ag-table__muted">{new Date(row.startsAtUtc).toLocaleString("vi-VN")}</td>
                     <td>
                       {row.topicCount} / {row.questionCount}
                     </td>
                     <td>{row.submissionCount}</td>
                     <td>
-                      <SessionStatusBadge status={inferSessionStatus(row.scheduledAtUtc)} />
+                      <SessionStatusBadge status={inferSessionStatus(row.startsAtUtc, row.endsAtUtc)} />
                     </td>
                   </tr>
                 ))
