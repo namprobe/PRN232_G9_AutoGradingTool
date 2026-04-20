@@ -2,7 +2,6 @@ import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { listExamSessions, listSubmissions } from "../api/gradingApi";
-import { DEMO_EXAM_SESSION_ID } from "../api/gradingMockData";
 import { inferSessionStatus, workflowToQPair } from "../lib/gradingUi";
 
 export function DashboardPage() {
@@ -18,7 +17,8 @@ export function DashboardPage() {
     (async () => {
       setLoading(true);
       const es = await listExamSessions(token, null);
-      const subs = await listSubmissions(token, DEMO_EXAM_SESSION_ID);
+      const firstSessionId = es.isSuccess && es.data?.length ? es.data[0]!.id : "";
+      const subs = firstSessionId ? await listSubmissions(token, firstSessionId) : { isSuccess: false as const, data: undefined };
       if (cancelled) return;
       if (es.isSuccess && es.data) {
         setActiveSessions(es.data.filter((x) => inferSessionStatus(x.startsAtUtc, x.endsAtUtc) === "active").length);
@@ -49,7 +49,7 @@ export function DashboardPage() {
           <div className="ag-stat__hint">Theo lịch ca thi</div>
         </div>
         <div className="ag-stat ag-stat--accent">
-          <div className="ag-stat__label">Bài nộp (ca demo)</div>
+          <div className="ag-stat__label">Bài nộp (ca đầu tiên)</div>
           <div className="ag-stat__value">{loading ? "…" : totalSubs}</div>
           <div className="ag-stat__hint">Zip Q1 + Q2</div>
         </div>
@@ -72,6 +72,21 @@ export function DashboardPage() {
             <p className="ag-card__desc">Luồng giảng viên thường dùng</p>
           </div>
           <div className="ag-quick-actions">
+            <Link className="ag-tile" to="/system-flows">
+              <span className="ag-tile__icon" aria-hidden>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+                  <circle cx="5" cy="12" r="2" />
+                  <circle cx="12" cy="7" r="2" />
+                  <circle cx="19" cy="12" r="2" />
+                  <circle cx="12" cy="17" r="2" />
+                  <path d="M7 11l3-2.5M14 9.5l3 2.5M17 13l-3 2.5M10 15.5L7 13" />
+                </svg>
+              </span>
+              <span className="ag-tile__text">
+                <span className="ag-tile__title">Luồng &amp; entity</span>
+                <span className="ag-tile__sub">Đối chiếu SYSTEM_FLOWS</span>
+              </span>
+            </Link>
             <Link className="ag-tile" to="/submissions/upload">
               <span className="ag-tile__icon" aria-hidden>
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
@@ -81,6 +96,18 @@ export function DashboardPage() {
               <span className="ag-tile__text">
                 <span className="ag-tile__title">Tải zip Q1 & Q2</span>
                 <span className="ag-tile__sub">POST /api/cms/grading/submissions</span>
+              </span>
+            </Link>
+            <Link className="ag-tile" to="/semesters">
+              <span className="ag-tile__icon" aria-hidden>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+                  <path d="M4 19.5A2.5 2.5 0 016.5 17H20" />
+                  <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z" />
+                </svg>
+              </span>
+              <span className="ag-tile__text">
+                <span className="ag-tile__title">Học kỳ</span>
+                <span className="ag-tile__sub">GET semesters</span>
               </span>
             </Link>
             <Link className="ag-tile" to="/exam-sessions">
