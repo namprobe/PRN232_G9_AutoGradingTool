@@ -14,6 +14,10 @@
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Features\ExamAdmin\" />
+  </ItemGroup>
+
   <!-- Resource files (.resx) are automatically included by .NET SDK -->
   <!-- They will be built into satellite assemblies automatically -->
 

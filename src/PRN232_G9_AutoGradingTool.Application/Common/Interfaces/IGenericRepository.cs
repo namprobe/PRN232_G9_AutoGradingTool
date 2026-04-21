@@ -30,7 +30,7 @@ public interface IGenericRepository<T> where T : class, IEntityLike
     Task<IEnumerable<T>> GetAllAsync(
         Expression<Func<T, object>>[]? includes = null, 
         CancellationToken cancellationToken = default);
-    
+
     Task<IEnumerable<T>> FindAsync(
         Expression<Func<T, bool>>? predicate,
         Expression<Func<T, object>>? orderBy,
