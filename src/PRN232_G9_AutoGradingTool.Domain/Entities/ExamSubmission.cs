@@ -24,6 +24,7 @@ public class ExamSubmission : BaseEntity
 
     public decimal? TotalScore { get; set; }
     public DateTime SubmittedAtUtc { get; set; }
+    public TestResult Result { get; set; }
 
     public ICollection<ExamSubmissionFile> SubmissionFiles { get; set; } = new List<ExamSubmissionFile>();
     public ICollection<ExamQuestionScore> QuestionScores { get; set; } = new List<ExamQuestionScore>();

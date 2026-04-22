@@ -78,6 +78,8 @@ public static class ExamGradingModelConfiguration
             e.Property(x => x.MaxPoints).HasPrecision(9, 2);
             e.HasOne(x => x.ExamQuestion).WithMany(x => x.TestCases).HasForeignKey(x => x.ExamQuestionId)
                 .OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => x.ExamQuestionId )
+                .HasDatabaseName("IX_TestCases_ExamQuestionId");
         });
 
         modelBuilder.Entity<ExamSubmission>(e =>
@@ -98,6 +100,11 @@ public static class ExamGradingModelConfiguration
             e.HasIndex(x => new { x.ExamSessionClassId, x.StudentCode })
                 .IsUnique()
                 .HasFilter("\"exam_session_class_id\" IS NOT NULL");
+            e.HasOne(s => s.Result)
+                .WithOne(tr => tr.Submission)
+                .HasForeignKey<TestResult>(tr => tr.SubmissionId);
+            e.HasIndex(x => x.ExamSessionId)
+                .HasDatabaseName("IX_Submissions_ExamSessionId");
         });
 
         modelBuilder.Entity<ExamQuestionScore>(e =>
@@ -203,6 +210,23 @@ public static class ExamGradingModelConfiguration
                 .OnDelete(DeleteBehavior.Cascade);
             e.HasIndex(x => new { x.GradingJobId, x.Phase });
             e.HasIndex(x => new { x.GradingJobId, x.OccurredAtUtc });
+        });
+
+        modelBuilder.Entity<TestResult>(e =>
+        {
+            e.ToTable("test_results");
+            e.HasOne(tr => tr.Submission)
+                .WithOne(s => s.Result)
+                .HasForeignKey<TestResult>(tr => tr.SubmissionId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<TestResultDetail>(e =>
+        {
+            e.ToTable("test_result_details");
+            e.Property(x => x.ErrorMessage).HasMaxLength(2000);
+            e.HasOne(x => x.Result).WithMany(x => x.Details).HasForeignKey(x => x.ResultId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

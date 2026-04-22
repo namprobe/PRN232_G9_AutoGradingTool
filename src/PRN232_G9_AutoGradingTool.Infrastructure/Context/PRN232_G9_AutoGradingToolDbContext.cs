@@ -1,11 +1,12 @@
-using PRN232_G9_AutoGradingTool.Domain.Entities;
-using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
-using Npgsql.EntityFrameworkCore.PostgreSQL;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using Npgsql.EntityFrameworkCore.PostgreSQL;
+using PRN232_G9_AutoGradingTool.Application.Common.Models;
+using PRN232_G9_AutoGradingTool.Domain.Entities;
 using PRN232_G9_AutoGradingTool.Infrastructure.Configurations;
 using System.Linq;
 
@@ -20,6 +21,8 @@ public class PRN232_G9_AutoGradingToolDbContext : IdentityDbContext<AppUser, App
     public DbSet<ExamTopic> ExamTopics => Set<ExamTopic>();
     public DbSet<ExamQuestion> ExamQuestions => Set<ExamQuestion>();
     public DbSet<ExamTestCase> ExamTestCases => Set<ExamTestCase>();
+    public DbSet<TestResult> TestResults => Set<TestResult>();
+    public DbSet<TestResultDetail> TestResultDetails => Set<TestResultDetail>();
     public DbSet<ExamSubmission> ExamSubmissions => Set<ExamSubmission>();
     public DbSet<ExamQuestionScore> ExamQuestionScores => Set<ExamQuestionScore>();
     public DbSet<ExamTestCaseScore> ExamTestCaseScores => Set<ExamTestCaseScore>();
