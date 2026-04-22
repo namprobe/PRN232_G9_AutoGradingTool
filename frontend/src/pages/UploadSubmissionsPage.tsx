@@ -1,9 +1,11 @@
 import type { DragEvent } from "react";
-import { FormEvent, useCallback, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
-import { createSubmissionZip } from "../api/gradingApi";
+import { studentSubmitZip } from "../api/gradingCmsApi";
+import { createSubmissionZip, listExamSessions } from "../api/gradingApi";
 import { DEMO_EXAM_SESSION_ID } from "../api/gradingMockData";
+import type { ExamSessionListItem } from "../api/gradingTypes";
 import { useApiMock } from "../config/env";
 
 type Slot = "q1" | "q2";
@@ -11,13 +13,41 @@ type Slot = "q1" | "q2";
 export function UploadSubmissionsPage() {
   const { token } = useAuth();
   const mock = useApiMock();
+  const [sessions, setSessions] = useState<ExamSessionListItem[]>([]);
+  const [sessionsErr, setSessionsErr] = useState<string | null>(null);
+  const [examSessionId, setExamSessionId] = useState(DEMO_EXAM_SESSION_ID);
+  /** true = POST /api/student/grading/submissions (giả lập SV); false = CMS submissions */
+  const [useStudentApi, setUseStudentApi] = useState(true);
   const [q1, setQ1] = useState<File | null>(null);
   const [q2, setQ2] = useState<File | null>(null);
   const [studentCode, setStudentCode] = useState("HE199999");
   const [studentName, setStudentName] = useState("");
   const [dragOver, setDragOver] = useState<Slot | null>(null);
   const [msg, setMsg] = useState<{ type: "ok" | "err" | "info"; text: string } | null>(null);
+  const [lastOk, setLastOk] = useState<{ submissionId: string; sessionId: string } | null>(null);
   const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const r = await listExamSessions(token, null);
+      if (cancelled) return;
+      if (!r.isSuccess || !r.data) {
+        setSessionsErr(r.message ?? "Không tải được danh sách ca thi.");
+        return;
+      }
+      setSessionsErr(null);
+      setSessions(r.data);
+      setExamSessionId((cur) => {
+        if (r.data.length === 0) return "";
+        if (r.data.some((s) => s.id === cur)) return cur;
+        return r.data[0]!.id;
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
 
   const setFile = (slot: Slot, file: File | null) => {
     if (slot === "q1") setQ1(file);
@@ -48,49 +78,94 @@ export function UploadSubmissionsPage() {
       setMsg({ type: "err", text: "MSSV (studentCode) bắt buộc." });
       return;
     }
+    if (!examSessionId) {
+      setMsg({ type: "err", text: "Chọn ca thi (examSessionId)." });
+      return;
+    }
     setSending(true);
     setMsg(null);
+    setLastOk(null);
     const fd = new FormData();
-    fd.append("examSessionId", DEMO_EXAM_SESSION_ID);
+    fd.append("examSessionId", examSessionId);
     fd.append("studentCode", code);
     if (studentName.trim()) fd.append("studentName", studentName.trim());
     fd.append("q1Zip", q1);
     fd.append("q2Zip", q2);
 
-    const r = await createSubmissionZip(token, fd);
+    const r = useStudentApi ? await studentSubmitZip(token, fd) : await createSubmissionZip(token, fd);
     setSending(false);
     if (!r.isSuccess || !r.data) {
       setMsg({ type: "err", text: r.message ?? "Upload thất bại" });
       return;
     }
+    const via = useStudentApi ? "API học sinh" : "CMS";
+    setLastOk({ submissionId: r.data, sessionId: examSessionId });
     setMsg({
       type: "ok",
       text: mock
-        ? `Mock: đã tạo submissionId = ${r.data}. (BE thật sẽ lưu file + stub chấm.)`
-        : `Đã tạo bài nộp submissionId = ${r.data}. Xem chi tiết tại danh sách / Swagger.`,
+        ? `Mock (${via}): submissionId = ${r.data}.`
+        : `Đã tạo bài nộp (${via}) submissionId = ${r.data}.`,
     });
   }
 
   return (
     <div className="ag-stack ag-stack--lg">
       <div className="ag-steps" aria-hidden>
-        <div className="ag-steps__item ag-steps__item--done">1. Chọn zip</div>
-        <div className="ag-steps__item ag-steps__item--done">2. Gửi & enqueue</div>
-        <div className="ag-steps__item">3. Xem điểm</div>
+        <div className={"ag-steps__item" + (q1 && q2 ? " ag-steps__item--done" : "")}>1. Chọn zip</div>
+        <div className={"ag-steps__item" + (lastOk || sending ? " ag-steps__item--done" : "")}>2. Gửi & chấm stub</div>
+        <div className={"ag-steps__item" + (lastOk ? " ag-steps__item--done" : "")}>3. Xem điểm</div>
       </div>
 
       <form className="ag-stack ag-stack--md" onSubmit={onSubmit}>
-        <div className="ag-field" style={{ maxWidth: 420 }}>
-          <label className="ag-label" htmlFor="exam-session-ro">
-            Ca thi (form field examSessionId)
+        <div className="ag-field" style={{ maxWidth: 520 }}>
+          <label className="ag-label" htmlFor="exam-session-select">
+            Ca thi <span className="ag-table__muted">(examSessionId)</span>
           </label>
-          <input
-            id="exam-session-ro"
+          <select
+            id="exam-session-select"
             className="ag-input"
-            readOnly
-            value={`PRN232-DEMO-PE (${DEMO_EXAM_SESSION_ID})`}
-          />
+            value={examSessionId}
+            onChange={(e) => setExamSessionId(e.target.value)}
+            disabled={sessions.length === 0}
+          >
+            {sessions.length === 0 ? (
+              <option value="">—</option>
+            ) : (
+              sessions.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.code} — {s.title}
+                </option>
+              ))
+            )}
+          </select>
+          {sessionsErr ? <p className="ag-table__muted" style={{ marginTop: 6 }}>{sessionsErr}</p> : null}
         </div>
+
+        <fieldset className="ag-field" style={{ border: "none", padding: 0, margin: 0 }}>
+          <legend className="ag-label" style={{ marginBottom: 8 }}>
+            Kênh gửi
+          </legend>
+          <div className="ag-stack ag-stack--sm" style={{ flexDirection: "row", flexWrap: "wrap", gap: 16 }}>
+            <label className="ag-table__muted" style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+              <input
+                type="radio"
+                name="submit-channel"
+                checked={useStudentApi}
+                onChange={() => setUseStudentApi(true)}
+              />
+              Học sinh — <code className="ag-code ag-code--sm">POST /api/student/grading/submissions</code>
+            </label>
+            <label className="ag-table__muted" style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+              <input
+                type="radio"
+                name="submit-channel"
+                checked={!useStudentApi}
+                onChange={() => setUseStudentApi(false)}
+              />
+              CMS — <code className="ag-code ag-code--sm">POST /api/cms/grading/submissions</code>
+            </label>
+          </div>
+        </fieldset>
         <div className="ag-upload-grid" style={{ marginTop: 8 }}>
           <div className="ag-field">
             <label className="ag-label" htmlFor="student-code">
@@ -164,6 +239,23 @@ export function UploadSubmissionsPage() {
             role="status"
           >
             {msg.text}
+            {lastOk && msg.type === "ok" ? (
+              <div className="ag-stack ag-stack--sm" style={{ marginTop: 12 }}>
+                <Link
+                  className="ag-btn ag-btn--primary"
+                  to={`/submissions/${lastOk.submissionId}`}
+                  state={{ fromSessionId: lastOk.sessionId }}
+                >
+                  Xem chi tiết bài nộp
+                </Link>
+                <Link
+                  className="ag-btn ag-btn--secondary"
+                  to={`/submissions?examSessionId=${encodeURIComponent(lastOk.sessionId)}`}
+                >
+                  Danh sách bài nộp ca này
+                </Link>
+              </div>
+            ) : null}
           </div>
         ) : null}
 

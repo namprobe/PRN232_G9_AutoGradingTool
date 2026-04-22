@@ -176,7 +176,7 @@ EmailSettings__SenderName=No Reply - AutoGradingTool
 # File Storage (LocalStorage hoặc S3)
 # =============================================
 FileStorage__ProviderType=LocalStorage
-FileStorage__MaxFileSizeBytes=52428800
+FileStorage__MaxFileSizeBytes=209715200
 FileStorage__Local__RootPath=uploads
 # FileStorage__ProviderType=S3
 # FileStorage__S3__BucketName=YOUR_BUCKET
@@ -259,9 +259,11 @@ docker compose up --build -d
 ### Lần đầu chạy / Sau khi thay đổi code
 
 ```bash
-# Đảm bảo .env đã được tạo và DB_HOST=postgres
-# --build là bắt buộc để build Docker image từ source code
-docker compose up --build -d
+# Đảm bảo .env đã được tạo (copy từ .env.example): ConnectionStrings dùng Host=postgres, REDIS__Configuration=redis:6379
+# Build lại image khi có code mới:
+docker compose build --no-cache autogradingtool-api autogradingtool-frontend
+docker compose up -d
+# Hoặc một lệnh: docker compose up --build -d
 ```
 
 ### Chạy lại (không có thay đổi code)
@@ -293,14 +295,15 @@ docker compose down -v
 
 | Service | URL / Port |
 |---------|------------|
+| Frontend (nginx + `/api` proxy) | `http://localhost:5173` |
 | API | `http://localhost:5000` |
-| Swagger UI | `http://localhost:5000/swagger` |
-| Hangfire Dashboard | `http://localhost:5000/hangfire` |
+| Swagger UI | `http://localhost:5000/swagger` hoặc qua UI: `http://localhost:5173/swagger` |
+| Hangfire Dashboard | `http://localhost:5000/hangfire` hoặc `http://localhost:5173/hangfire` |
 | pgAdmin | `http://localhost:5050` |
 | PostgreSQL | `localhost:5432` |
 | Redis | `localhost:6379` |
 
-> Port có thể override qua biến `POSTGRES_PORT`, `REDIS_PORT`, `PGADMIN_PORT`, `API_PORT` trong `.env`.
+> Port có thể override qua biến `POSTGRES_PORT`, `REDIS_PORT`, `PGADMIN_PORT`, `API_PORT`, `FRONTEND_PORT` trong `.env`. API có `healthcheck`; frontend chỉ start sau khi API healthy.
 
 ---
 

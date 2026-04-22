@@ -9,7 +9,8 @@ function useHeaderMeta(): { title: string; subtitle: string } {
   if (pathname === "/semesters") return { title: "Học kỳ", subtitle: "Danh sách semester từ API CMS" };
   if (pathname === "/system-flows")
     return { title: "Luồng hệ thống", subtitle: "Entity + bốn luồng chính (SYSTEM_FLOWS.md)" };
-  if (pathname === "/grading-pack") return { title: "Pack chấm & asset", subtitle: "Tài liệu — REST pack sắp có" };
+  if (pathname === "/grading-pack")
+    return { title: "Pack chấm & asset", subtitle: "Quản lý trong chi tiết ca thi — REST đã có trên CMS" };
   if (pathname.startsWith("/exam-sessions/")) return { title: "Chi tiết ca thi", subtitle: "Topic, câu hỏi và testcase" };
   if (pathname === "/exam-sessions") return { title: "Ca thi", subtitle: "Kỳ thi — phiên — chủ đề & câu hỏi" };
   if (pathname === "/submissions") return { title: "Bài nộp", subtitle: "Danh sách zip đã gửi và trạng thái chấm" };

@@ -14,7 +14,9 @@ namespace PRN232_G9_AutoGradingTool.Infrastructure.Context;
 public class PRN232_G9_AutoGradingToolDbContext : IdentityDbContext<AppUser, AppRole, Guid>
 {
     public DbSet<Semester> Semesters => Set<Semester>();
+    public DbSet<ExamClass> ExamClasses => Set<ExamClass>();
     public DbSet<ExamSession> ExamSessions => Set<ExamSession>();
+    public DbSet<ExamSessionClass> ExamSessionClasses => Set<ExamSessionClass>();
     public DbSet<ExamTopic> ExamTopics => Set<ExamTopic>();
     public DbSet<ExamQuestion> ExamQuestions => Set<ExamQuestion>();
     public DbSet<ExamTestCase> ExamTestCases => Set<ExamTestCase>();

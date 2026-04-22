@@ -33,7 +33,7 @@ public static class ServiceConfiguration
         builder.AddLoggingConfiguration();
 
         // Security configurations
-        builder.Services.AddJwtConfiguration(builder.Configuration);
+        builder.Services.AddJwtConfiguration(builder.Configuration, builder.Environment);
         builder.Services.AddCorsConfiguration(builder.Configuration);
 
         // Application & Infrastructure layers

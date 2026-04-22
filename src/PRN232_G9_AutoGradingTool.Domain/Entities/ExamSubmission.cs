@@ -8,6 +8,10 @@ public class ExamSubmission : BaseEntity
     public Guid ExamSessionId { get; set; }
     public ExamSession ExamSession { get; set; } = null!;
 
+    /// <summary>Lớp trong ca (nullable cho bài nộp cũ / không chia lớp).</summary>
+    public Guid? ExamSessionClassId { get; set; }
+    public ExamSessionClass? ExamSessionClass { get; set; }
+
     /// <summary>Pack dùng khi nộp (đóng băng version chấm).</summary>
     public Guid? ExamGradingPackId { get; set; }
     public ExamGradingPack? ExamGradingPack { get; set; }

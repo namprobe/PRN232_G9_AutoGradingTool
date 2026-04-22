@@ -1,3 +1,14 @@
+# PRN232 G9 — full stack (Postgres, Redis, API, FE nginx, pgAdmin)
+#
+# Chuẩn bị: copy .env.example → .env và chỉnh mật khẩu/JWT (ConnectionStrings phải Host=postgres khi chạy compose).
+#
+# Sau khi có code mới:
+#   docker compose build --no-cache autogradingtool-api autogradingtool-frontend
+#   docker compose up -d
+#
+# Swagger API trực tiếp: http://localhost:${API_PORT:-5000}/swagger
+# UI (qua nginx, /api proxy sang API): http://localhost:${FRONTEND_PORT:-5173}/
+
 services:
   postgres:
     image: postgres:15-alpine
@@ -73,13 +84,14 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
+        # Rỗng = browser gọi /api/... cùng origin, nginx proxy sang service API
         VITE_API_BASE_URL: ""
     container_name: autogradingtool-frontend
     ports:
       - "${FRONTEND_PORT:-5173}:80"
     depends_on:
       autogradingtool-api:
-        condition: service_started
+        condition: service_healthy
     networks:
       - autogradingtool-network
 
@@ -94,13 +106,20 @@ services:
     env_file:
       - .env
     environment:
-      # Application Server Configuration
-      # Override via shell: export ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Development}
-      # All other configuration (ConnectionStrings, JWT, etc.) loaded from .env file
-      # You can override any variable by setting it in your shell before running docker-compose
+      # entrypoint.sh chờ DB (mặc định hostname service trong compose)
+      - DB_HOST=${DB_HOST:-postgres}
+      - DB_PORT=${DB_PORT:-5432}
+      # Zip nộp bài có thể > 50MB; ghi đè .env cũ nếu cần
+      - FileStorage__MaxFileSizeBytes=${FILESTORAGE_MAX_BYTES:-209715200}
     ports:
       - "${API_PORT:-5000}:80"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost/health >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 90s
     volumes:
       # Persist logs directory - application logs will not be lost on rebuild
       # Mounted to logs_data named volume at runtime

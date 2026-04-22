@@ -10,4 +10,5 @@ public class Semester : BaseEntity
     public DateTime? EndDateUtc { get; set; }
 
     public ICollection<ExamSession> ExamSessions { get; set; } = new List<ExamSession>();
+    public ICollection<ExamClass> ExamClasses { get; set; } = new List<ExamClass>();
 }

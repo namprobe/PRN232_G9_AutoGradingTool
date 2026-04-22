@@ -12,12 +12,12 @@ import type {
 import {
   delay,
   mockCreateSubmission,
-  mockExamSessions,
+  getMockExamSessionsResult,
+  getMockSemestersResult,
   mockGetExamSession,
   mockGetSubmission,
   mockListSubmissions,
   mockReplaceSubmissionFile,
-  mockSemesters,
   mockTriggerRegrade,
 } from "./gradingMockData";
 
@@ -28,7 +28,7 @@ async function maybeDelay(): Promise<void> {
 export async function listSemesters(token: string | null): Promise<ApiResult<SemesterListItem[]>> {
   if (useApiMock()) {
     await maybeDelay();
-    return mockSemesters;
+    return getMockSemestersResult();
   }
   return apiFetch<SemesterListItem[]>("/api/cms/grading/semesters", { method: "GET", token });
 }
@@ -39,7 +39,7 @@ export async function listExamSessions(
 ): Promise<ApiResult<ExamSessionListItem[]>> {
   if (useApiMock()) {
     await maybeDelay();
-    return mockExamSessions;
+    return getMockExamSessionsResult(semesterId);
   }
   const q = semesterId ? `?semesterId=${encodeURIComponent(semesterId)}` : "";
   return apiFetch<ExamSessionListItem[]>(`/api/cms/grading/exam-sessions${q}`, { method: "GET", token });
@@ -79,7 +79,10 @@ export async function createSubmissionZip(
 ): Promise<ApiResult<string>> {
   if (useApiMock()) {
     await delay(400);
-    return mockCreateSubmission();
+    const sessionId = String(formData.get("examSessionId") ?? "");
+    const studentCode = String(formData.get("studentCode") ?? "");
+    const sn = formData.get("studentName");
+    return mockCreateSubmission(sessionId, studentCode, sn != null ? String(sn) : undefined);
   }
   const headers = new Headers();
   if (token) headers.set("Authorization", `Bearer ${token}`);

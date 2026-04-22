@@ -16,6 +16,17 @@ public static class ExamGradingModelConfiguration
             e.HasIndex(x => x.Code).IsUnique();
         });
 
+        modelBuilder.Entity<ExamClass>(e =>
+        {
+            e.ToTable("exam_classes");
+            e.Property(x => x.Code).HasMaxLength(64).IsRequired();
+            e.Property(x => x.Name).HasMaxLength(256).IsRequired();
+            e.Property(x => x.MaxStudents).IsRequired();
+            e.HasOne(x => x.Semester).WithMany(x => x.ExamClasses).HasForeignKey(x => x.SemesterId)
+                .OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(x => new { x.SemesterId, x.Code }).IsUnique();
+        });
+
         modelBuilder.Entity<ExamSession>(e =>
         {
             e.ToTable("exam_sessions");
@@ -24,9 +35,22 @@ public static class ExamGradingModelConfiguration
             e.Property(x => x.StartsAtUtc).HasColumnType("timestamp with time zone");
             e.Property(x => x.ExamDurationMinutes).HasDefaultValue(90);
             e.Property(x => x.EndsAtUtc).HasColumnType("timestamp with time zone");
+            e.Property(x => x.DeferredClassGrading).HasDefaultValue(false);
             e.HasOne(x => x.Semester).WithMany(x => x.ExamSessions).HasForeignKey(x => x.SemesterId)
                 .OnDelete(DeleteBehavior.Restrict);
             e.HasIndex(x => new { x.SemesterId, x.Code }).IsUnique();
+        });
+
+        modelBuilder.Entity<ExamSessionClass>(e =>
+        {
+            e.ToTable("exam_session_classes");
+            e.Property(x => x.ExpectedStudentCount).IsRequired();
+            e.Property(x => x.BatchStatus).HasColumnName("batch_status").HasConversion<int>();
+            e.HasOne(x => x.ExamSession).WithMany(x => x.SessionClasses).HasForeignKey(x => x.ExamSessionId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.ExamClass).WithMany(x => x.SessionClasses).HasForeignKey(x => x.ExamClassId)
+                .OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(x => new { x.ExamSessionId, x.ExamClassId }).IsUnique();
         });
 
         modelBuilder.Entity<ExamTopic>(e =>
@@ -66,9 +90,14 @@ public static class ExamGradingModelConfiguration
             e.Property(x => x.WorkflowStatus).HasColumnName("workflow_status").HasConversion<int>();
             e.HasOne(x => x.ExamSession).WithMany(x => x.Submissions).HasForeignKey(x => x.ExamSessionId)
                 .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.ExamSessionClass).WithMany(x => x.Submissions).HasForeignKey(x => x.ExamSessionClassId)
+                .OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.ExamGradingPack).WithMany().HasForeignKey(x => x.ExamGradingPackId)
                 .OnDelete(DeleteBehavior.SetNull);
             e.HasIndex(x => new { x.ExamSessionId, x.StudentCode });
+            e.HasIndex(x => new { x.ExamSessionClassId, x.StudentCode })
+                .IsUnique()
+                .HasFilter("\"exam_session_class_id\" IS NOT NULL");
         });
 
         modelBuilder.Entity<ExamQuestionScore>(e =>

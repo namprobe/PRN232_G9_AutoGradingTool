@@ -176,6 +176,7 @@ public class ExamGradingAppService : IExamGradingAppService
         string? studentName,
         IFormFile q1Zip,
         IFormFile q2Zip,
+        bool bypassExamWindow = false,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(studentCode))
@@ -187,6 +188,15 @@ public class ExamGradingAppService : IExamGradingAppService
 
         if (session == null)
             return Result<Guid>.Failure("Không tìm thấy ca thi.", ErrorCodeEnum.NotFound);
+
+        if (!bypassExamWindow)
+        {
+            var now = DateTime.UtcNow;
+            if (now < session.StartsAtUtc)
+                return Result<Guid>.Failure("Ca thi chưa mở nhận bài.", ErrorCodeEnum.ValidationFailed);
+            if (now > session.EndsAtUtc)
+                return Result<Guid>.Failure("Đã hết hạn nộp bài cho ca thi này.", ErrorCodeEnum.ValidationFailed);
+        }
 
         if (!IsZip(q1Zip) || !IsZip(q2Zip))
             return Result<Guid>.Failure("Hai file phải là .zip.", ErrorCodeEnum.InvalidFileType);

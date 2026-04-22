@@ -1,5 +1,6 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
 
 namespace PRN232_G9_AutoGradingTool.API.Configurations;
@@ -12,16 +13,25 @@ public static class JwtConfiguration
     /// <summary>
     /// Configure JWT authentication
     /// </summary>
-    public static IServiceCollection AddJwtConfiguration(this IServiceCollection services, 
-        IConfiguration configuration, bool requireHttps = false)
+    public static IServiceCollection AddJwtConfiguration(this IServiceCollection services,
+        IConfiguration configuration,
+        IHostEnvironment hostEnvironment,
+        bool requireHttps = false)
     {
         // Get JWT settings
         var jwtKey = configuration["Jwt:Key"];
         var jwtIssuer = configuration["Jwt:Issuer"];
         var audience = configuration["Jwt:Audience"];
 
+        if (hostEnvironment.IsDevelopment())
+        {
+            jwtKey ??= "DEV_ONLY_PRN232_JWT_KEY_CHANGE_IN_PRODUCTION_32+";
+            jwtIssuer ??= "Autogradingtool";
+            audience ??= "AutogradingtoolClients";
+        }
+
         if (string.IsNullOrEmpty(jwtKey))
-            throw new ArgumentNullException(nameof(jwtKey), "JWT Key is not configured");
+            throw new ArgumentNullException(nameof(jwtKey), "JWT Key is not configured (set Jwt:Key or Jwt__Key in .env)");
 
         if (string.IsNullOrEmpty(jwtIssuer))
             throw new ArgumentNullException(nameof(jwtIssuer), "JWT Issuer is not configured");

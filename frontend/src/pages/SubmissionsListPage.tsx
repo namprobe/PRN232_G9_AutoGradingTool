@@ -168,7 +168,11 @@ export function SubmissionsListPage() {
                         )}
                       </td>
                       <td className="ag-table__actions">
-                        <Link className="ag-linkbtn" to={`/submissions/${s.id}`}>
+                        <Link
+                          className="ag-linkbtn"
+                          to={`/submissions/${s.id}`}
+                          state={{ fromSessionId: sessionId }}
+                        >
                           Chi tiết
                         </Link>
                       </td>

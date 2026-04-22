@@ -26,7 +26,13 @@ public class ExamSession : BaseEntity
     /// </summary>
     public DateTime EndsAtUtc { get; set; }
 
+    /// <summary>
+    /// Khi bật: bài nộp phải gắn <see cref="ExamSessionClass"/>; chỉ chấm sau khi proctor gọi API batch (đủ sĩ số hoặc force).
+    /// </summary>
+    public bool DeferredClassGrading { get; set; }
+
     public ICollection<ExamTopic> Topics { get; set; } = new List<ExamTopic>();
     public ICollection<ExamSubmission> Submissions { get; set; } = new List<ExamSubmission>();
     public ICollection<ExamGradingPack> GradingPacks { get; set; } = new List<ExamGradingPack>();
+    public ICollection<ExamSessionClass> SessionClasses { get; set; } = new List<ExamSessionClass>();
 }
