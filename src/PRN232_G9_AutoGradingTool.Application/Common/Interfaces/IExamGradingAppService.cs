@@ -13,7 +13,10 @@ public interface IExamGradingAppService
 
     Task<Result<ExamSessionDetailDto>> GetExamSessionAsync(Guid id, CancellationToken cancellationToken = default);
 
-    Task<Result<List<ExamSubmissionListItemDto>>> ListSubmissionsAsync(Guid examSessionId, CancellationToken cancellationToken = default);
+    Task<Result<List<ExamSubmissionListItemDto>>> ListSubmissionsAsync(
+        Guid examSessionId,
+        Guid? examSessionClassId = null,
+        CancellationToken cancellationToken = default);
 
     Task<Result<ExamSubmissionDetailDto>> GetSubmissionAsync(Guid id, CancellationToken cancellationToken = default);
 
@@ -25,6 +28,7 @@ public interface IExamGradingAppService
         IFormFile q1Zip,
         IFormFile q2Zip,
         bool bypassExamWindow = false,
+        Guid? examSessionClassId = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -43,5 +47,14 @@ public interface IExamGradingAppService
     /// </summary>
     Task<Result<TriggerRegradeResponseDto>> TriggerRegradeAsync(
         Guid submissionId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Chấm batch theo lớp: chỉ áp dụng khi ca thi bật DeferredClassGrading.
+    /// Mặc định cần đủ số bài đã upload Q1+Q2 (Ready) ≥ ExpectedStudentCount, trừ khi force.
+    /// </summary>
+    Task<Result<StartClassBatchGradingResponseDto>> StartClassBatchGradingAsync(
+        Guid examSessionClassId,
+        StartClassBatchGradingRequest request,
         CancellationToken cancellationToken = default);
 }

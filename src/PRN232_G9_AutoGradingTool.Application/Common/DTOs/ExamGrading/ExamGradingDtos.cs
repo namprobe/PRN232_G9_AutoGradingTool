@@ -25,6 +25,7 @@ public record ExamSessionDetailDto(
     DateTime StartsAtUtc,
     int ExamDurationMinutes,
     DateTime EndsAtUtc,
+    bool DeferredClassGrading,
     IReadOnlyList<ExamTopicDetailDto> Topics);
 
 public record ExamTopicDetailDto(Guid Id, string Title, int SortOrder, IReadOnlyList<ExamQuestionDetailDto> Questions);

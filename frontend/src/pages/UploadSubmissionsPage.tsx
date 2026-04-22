@@ -1,22 +1,24 @@
 import type { DragEvent } from "react";
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { studentSubmitZip } from "../api/gradingCmsApi";
-import { createSubmissionZip, listExamSessions } from "../api/gradingApi";
-import { DEMO_EXAM_SESSION_ID } from "../api/gradingMockData";
-import type { ExamSessionListItem } from "../api/gradingTypes";
+import { createSubmissionZip, getExamSession } from "../api/gradingApi";
 import { useApiMock } from "../config/env";
+import { WorkflowBreadcrumb, crumbsForUpload } from "../components/WorkflowBreadcrumb";
+import { examSessionDetailPath, examSessionSubmissionsPath } from "../lib/workflowRoutes";
 
 type Slot = "q1" | "q2";
 
 export function UploadSubmissionsPage() {
+  const { sessionId: routeSessionId } = useParams<{ sessionId: string }>();
   const { token } = useAuth();
   const mock = useApiMock();
-  const [sessions, setSessions] = useState<ExamSessionListItem[]>([]);
-  const [sessionsErr, setSessionsErr] = useState<string | null>(null);
-  const [examSessionId, setExamSessionId] = useState(DEMO_EXAM_SESSION_ID);
-  /** true = POST /api/student/grading/submissions (giả lập SV); false = CMS submissions */
+  const [sessionCode, setSessionCode] = useState("");
+  const [sessionTitle, setSessionTitle] = useState("");
+  const [metaErr, setMetaErr] = useState<string | null>(null);
+  const [examSessionId, setExamSessionId] = useState("");
+  /** true = kênh thí sinh; false = kênh quản trị nội bộ */
   const [useStudentApi, setUseStudentApi] = useState(true);
   const [q1, setQ1] = useState<File | null>(null);
   const [q2, setQ2] = useState<File | null>(null);
@@ -28,26 +30,29 @@ export function UploadSubmissionsPage() {
   const [sending, setSending] = useState(false);
 
   useEffect(() => {
+    if (!routeSessionId) {
+      setMetaErr("Thiếu mã ca thi trong URL — mở từ trang chi tiết ca.");
+      return;
+    }
+    setExamSessionId(routeSessionId);
+    setMetaErr(null);
     let cancelled = false;
     (async () => {
-      const r = await listExamSessions(token, null);
+      const meta = await getExamSession(token, routeSessionId);
       if (cancelled) return;
-      if (!r.isSuccess || !r.data) {
-        setSessionsErr(r.message ?? "Không tải được danh sách ca thi.");
+      if (!meta.isSuccess || !meta.data) {
+        setMetaErr(meta.message ?? "Không tải được ca thi.");
+        setSessionCode("");
+        setSessionTitle("");
         return;
       }
-      setSessionsErr(null);
-      setSessions(r.data);
-      setExamSessionId((cur) => {
-        if (r.data.length === 0) return "";
-        if (r.data.some((s) => s.id === cur)) return cur;
-        return r.data[0]!.id;
-      });
+      setSessionCode(meta.data.code);
+      setSessionTitle(meta.data.title);
     })();
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [token, routeSessionId]);
 
   const setFile = (slot: Slot, file: File | null) => {
     if (slot === "q1") setQ1(file);
@@ -60,7 +65,7 @@ export function UploadSubmissionsPage() {
     const f = e.dataTransfer.files[0];
     if (!f) return;
     if (!f.name.toLowerCase().endsWith(".zip")) {
-      setMsg({ type: "err", text: "Chỉ chấp nhận file .zip" });
+      setMsg({ type: "err", text: "Chỉ dùng được tệp .zip." });
       return;
     }
     setFile(slot, f);
@@ -75,11 +80,11 @@ export function UploadSubmissionsPage() {
     }
     const code = studentCode.trim();
     if (!code) {
-      setMsg({ type: "err", text: "MSSV (studentCode) bắt buộc." });
+      setMsg({ type: "err", text: "Vui lòng nhập mã số sinh viên." });
       return;
     }
     if (!examSessionId) {
-      setMsg({ type: "err", text: "Chọn ca thi (examSessionId)." });
+      setMsg({ type: "err", text: "Thiếu thông tin ca thi — hãy mở lại trang từ danh sách ca." });
       return;
     }
     setSending(true);
@@ -98,18 +103,41 @@ export function UploadSubmissionsPage() {
       setMsg({ type: "err", text: r.message ?? "Upload thất bại" });
       return;
     }
-    const via = useStudentApi ? "API học sinh" : "CMS";
+    const via = useStudentApi ? "kênh thí sinh" : "kênh quản trị";
     setLastOk({ submissionId: r.data, sessionId: examSessionId });
     setMsg({
       type: "ok",
       text: mock
-        ? `Mock (${via}): submissionId = ${r.data}.`
-        : `Đã tạo bài nộp (${via}) submissionId = ${r.data}.`,
+        ? `Chế độ thử (${via}): đã tạo bài nộp. Mã tham chiếu: ${r.data}.`
+        : `Đã gửi bài qua ${via}. Mã tham chiếu: ${r.data}.`,
     });
+  }
+
+  if (!routeSessionId) {
+    return (
+      <div className="ag-empty ag-animate-in">
+        <p className="ag-empty__text">Đường dẫn không hợp lệ.</p>
+        <Link to="/exam-sessions" className="ag-btn ag-btn--primary">
+          Chọn ca thi
+        </Link>
+      </div>
+    );
+  }
+
+  if (metaErr || !sessionCode) {
+    return (
+      <div className="ag-empty ag-animate-in">
+        <p className="ag-empty__text">{metaErr ?? "Đang tải thông tin ca…"}</p>
+        <Link to="/exam-sessions" className="ag-btn ag-btn--secondary">
+          Danh sách ca thi
+        </Link>
+      </div>
+    );
   }
 
   return (
     <div className="ag-stack ag-stack--lg">
+      <WorkflowBreadcrumb items={crumbsForUpload(sessionCode, routeSessionId)} />
       <div className="ag-steps" aria-hidden>
         <div className={"ag-steps__item" + (q1 && q2 ? " ag-steps__item--done" : "")}>1. Chọn zip</div>
         <div className={"ag-steps__item" + (lastOk || sending ? " ag-steps__item--done" : "")}>2. Gửi & chấm stub</div>
@@ -117,33 +145,23 @@ export function UploadSubmissionsPage() {
       </div>
 
       <form className="ag-stack ag-stack--md" onSubmit={onSubmit}>
-        <div className="ag-field" style={{ maxWidth: 520 }}>
-          <label className="ag-label" htmlFor="exam-session-select">
-            Ca thi <span className="ag-table__muted">(examSessionId)</span>
-          </label>
-          <select
-            id="exam-session-select"
-            className="ag-input"
-            value={examSessionId}
-            onChange={(e) => setExamSessionId(e.target.value)}
-            disabled={sessions.length === 0}
-          >
-            {sessions.length === 0 ? (
-              <option value="">—</option>
-            ) : (
-              sessions.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.code} — {s.title}
-                </option>
-              ))
-            )}
-          </select>
-          {sessionsErr ? <p className="ag-table__muted" style={{ marginTop: 6 }}>{sessionsErr}</p> : null}
+        <div className="ag-card" style={{ padding: "0.75rem 1rem", maxWidth: 640 }}>
+          <div className="ag-card__head" style={{ marginBottom: 6 }}>
+            <h3 className="ag-card__title" style={{ margin: 0 }}>
+              Ca thi đang nộp
+            </h3>
+          </div>
+          <p style={{ margin: 0 }}>
+            <span className="ag-table__strong">{sessionCode}</span> {sessionTitle}
+          </p>
+          <p className="ag-table__muted" style={{ margin: "0.5rem 0 0", fontSize: "0.85rem" }}>
+            Đổi ca: quay lại danh sách hoặc dùng menu «Đổi nhanh» ở trang bài nộp.
+          </p>
         </div>
 
         <fieldset className="ag-field" style={{ border: "none", padding: 0, margin: 0 }}>
           <legend className="ag-label" style={{ marginBottom: 8 }}>
-            Kênh gửi
+            Gửi bài qua
           </legend>
           <div className="ag-stack ag-stack--sm" style={{ flexDirection: "row", flexWrap: "wrap", gap: 16 }}>
             <label className="ag-table__muted" style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
@@ -153,7 +171,7 @@ export function UploadSubmissionsPage() {
                 checked={useStudentApi}
                 onChange={() => setUseStudentApi(true)}
               />
-              Học sinh — <code className="ag-code ag-code--sm">POST /api/student/grading/submissions</code>
+              Cổng dành cho thí sinh (như thi thật)
             </label>
             <label className="ag-table__muted" style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
               <input
@@ -162,14 +180,14 @@ export function UploadSubmissionsPage() {
                 checked={!useStudentApi}
                 onChange={() => setUseStudentApi(false)}
               />
-              CMS — <code className="ag-code ag-code--sm">POST /api/cms/grading/submissions</code>
+              Cổng quản trị (nội bộ giảng viên)
             </label>
           </div>
         </fieldset>
         <div className="ag-upload-grid" style={{ marginTop: 8 }}>
           <div className="ag-field">
             <label className="ag-label" htmlFor="student-code">
-              MSSV <span className="ag-table__muted">(studentCode)</span>
+              Mã số sinh viên
             </label>
             <input
               id="student-code"
@@ -181,7 +199,7 @@ export function UploadSubmissionsPage() {
           </div>
           <div className="ag-field">
             <label className="ag-label" htmlFor="student-name">
-              Họ tên <span className="ag-table__muted">(tuỳ chọn)</span>
+              Họ và tên <span className="ag-table__muted">(không bắt buộc)</span>
             </label>
             <input
               id="student-name"
@@ -195,8 +213,8 @@ export function UploadSubmissionsPage() {
 
         <div className="ag-upload-grid">
           <DropCard
-            title="Question 1"
-            subtitle="q1Zip — file .zip"
+            title="Câu 1"
+            subtitle="Một tệp .zip cho câu 1"
             file={q1}
             dragOver={dragOver === "q1"}
             onDragOver={(e) => {
@@ -212,8 +230,8 @@ export function UploadSubmissionsPage() {
             onClear={() => setFile("q1", null)}
           />
           <DropCard
-            title="Question 2"
-            subtitle="q2Zip — file .zip"
+            title="Câu 2"
+            subtitle="Một tệp .zip cho câu 2"
             file={q2}
             dragOver={dragOver === "q2"}
             onDragOver={(e) => {
@@ -248,10 +266,7 @@ export function UploadSubmissionsPage() {
                 >
                   Xem chi tiết bài nộp
                 </Link>
-                <Link
-                  className="ag-btn ag-btn--secondary"
-                  to={`/submissions?examSessionId=${encodeURIComponent(lastOk.sessionId)}`}
-                >
+                <Link className="ag-btn ag-btn--secondary" to={examSessionSubmissionsPath(lastOk.sessionId)}>
                   Danh sách bài nộp ca này
                 </Link>
               </div>
@@ -260,11 +275,14 @@ export function UploadSubmissionsPage() {
         ) : null}
 
         <div className="ag-upload-actions">
-          <Link to="/submissions" className="ag-btn ag-btn--ghost">
-            Quay lại
+          <Link to={examSessionDetailPath(routeSessionId)} className="ag-btn ag-btn--ghost">
+            Chi tiết ca
+          </Link>
+          <Link to={examSessionSubmissionsPath(routeSessionId)} className="ag-btn ag-btn--ghost">
+            Bài nộp
           </Link>
           <button type="submit" className="ag-btn ag-btn--primary ag-btn--lg" disabled={!q1 || !q2 || sending}>
-            {sending ? "Đang gửi…" : "Gửi bài (multipart)"}
+            {sending ? "Đang gửi…" : "Gửi bài"}
           </button>
         </div>
       </form>

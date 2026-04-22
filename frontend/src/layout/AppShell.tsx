@@ -6,18 +6,22 @@ import { useApiMock } from "../config/env";
 function useHeaderMeta(): { title: string; subtitle: string } {
   const { pathname } = useLocation();
   if (pathname === "/") return { title: "Tổng quan", subtitle: "Thống kê nhanh và trạng thái pipeline chấm bài" };
-  if (pathname === "/semesters") return { title: "Học kỳ", subtitle: "Danh sách semester từ API CMS" };
+  if (pathname === "/semesters") return { title: "Học kỳ", subtitle: "Danh sách kỳ học và thời gian áp dụng" };
   if (pathname === "/system-flows")
     return { title: "Luồng hệ thống", subtitle: "Entity + bốn luồng chính (SYSTEM_FLOWS.md)" };
   if (pathname === "/grading-pack")
-    return { title: "Pack chấm & asset", subtitle: "Quản lý trong chi tiết ca thi — REST đã có trên CMS" };
-  if (pathname.startsWith("/exam-sessions/")) return { title: "Chi tiết ca thi", subtitle: "Topic, câu hỏi và testcase" };
+    return { title: "Gói chấm & tệp đính kèm", subtitle: "Thao tác chính nằm trong trang chi tiết từng ca thi" };
+  if (/^\/exam-sessions\/[^/]+\/upload$/.test(pathname))
+    return { title: "Tải lên bài thi", subtitle: "Zip Q1 và Q2 gắn với ca đang chọn" };
+  if (/^\/exam-sessions\/[^/]+\/submissions$/.test(pathname))
+    return { title: "Bài nộp theo ca", subtitle: "Danh sách zip và trạng thái chấm của một ca thi" };
+  if (/^\/exam-sessions\/[^/]+$/.test(pathname))
+    return { title: "Chi tiết ca thi", subtitle: "Topic, câu hỏi, pack chấm và testcase" };
   if (pathname === "/exam-sessions") return { title: "Ca thi", subtitle: "Kỳ thi — phiên — chủ đề & câu hỏi" };
-  if (pathname === "/submissions") return { title: "Bài nộp", subtitle: "Danh sách zip đã gửi và trạng thái chấm" };
-  if (pathname === "/submissions/upload") return { title: "Tải lên bài thi", subtitle: "Hai file zip riêng cho Q1 và Q2" };
+  if (pathname === "/submissions") return { title: "Bài nộp", subtitle: "Chọn ca để xem danh sách zip và trạng thái chấm" };
   if (/^\/submissions\/[^/]+$/.test(pathname))
-    return { title: "Chi tiết bài nộp", subtitle: "WorkflowStatus, submissionFiles, điểm câu & testcase" };
-  return { title: "CMS", subtitle: "Auto Grading Tool" };
+    return { title: "Chi tiết bài nộp", subtitle: "Trạng thái chấm, tệp đính kèm, điểm theo câu và từng bài kiểm tra" };
+  return { title: "Quản trị", subtitle: "Công cụ chấm bài tự động" };
 }
 
 type NavItem = {
@@ -38,17 +42,21 @@ const nav: NavItem[] = [
     end: false,
     label: "Ca thi",
     icon: IconCalendar,
-    isActive: (p) => p === "/exam-sessions" || p.startsWith("/exam-sessions/"),
+    isActive: (p) => {
+      if (p === "/exam-sessions") return true;
+      if (/^\/exam-sessions\/[^/]+\/submissions$/.test(p)) return false;
+      return p.startsWith("/exam-sessions/");
+    },
   },
-  { to: "/grading-pack", end: true, label: "Pack & asset", icon: IconBox },
+  { to: "/grading-pack", end: true, label: "Gói chấm", icon: IconBox },
   {
     to: "/submissions",
     end: true,
     label: "Bài nộp",
     icon: IconInbox,
-    isActive: (p) => p === "/submissions" || (p.startsWith("/submissions/") && !p.startsWith("/submissions/upload")),
+    isActive: (p) =>
+      p === "/submissions" || /^\/submissions\/[^/]+$/.test(p) || /^\/exam-sessions\/[^/]+\/submissions$/.test(p),
   },
-  { to: "/submissions/upload", end: false, label: "Tải lên zip", icon: IconUpload },
 ];
 
 export function AppShell() {
@@ -67,7 +75,7 @@ export function AppShell() {
           <span className="ag-logo" aria-hidden />
           <div>
             <div className="ag-sidebar__title">Auto Grading</div>
-            <div className="ag-sidebar__sub">PRN232 · G9 CMS</div>
+            <div className="ag-sidebar__sub">PRN232 · Nhóm 9</div>
           </div>
         </div>
         <nav className="ag-sidebar__nav">
@@ -88,11 +96,11 @@ export function AppShell() {
           ))}
         </nav>
         <div className="ag-sidebar__foot">
-          <span className="ag-chip ag-chip--muted">{apiMock ? "Mock API (dev)" : "API thật"}</span>
+          <span className="ag-chip ag-chip--muted">{apiMock ? "Chế độ thử (máy bạn)" : "Máy chủ thật"}</span>
           <p className="ag-sidebar__hint">
             {apiMock
-              ? "VITE_USE_API_MOCK=true — auth + grading trả dữ liệu local."
-              : "Gọi backend theo VITE_API_BASE_URL / cùng origin."}
+              ? "Đang dùng dữ liệu giả lập trên trình duyệt để xem giao diện."
+              : "Đang kết nối tới máy chủ cấu hình trong môi trường chạy ứng dụng."}
           </p>
         </div>
       </aside>
@@ -103,8 +111,8 @@ export function AppShell() {
             <p className="ag-header__crumb">{subtitle}</p>
           </div>
           <div className="ag-header__meta">
-            <div className="ag-session-pill" title="JWT hết hạn">
-              <span className="ag-session-pill__k">Phiên</span>
+            <div className="ag-session-pill" title="Thời điểm phiên đăng nhập hết hạn">
+              <span className="ag-session-pill__k">Hết hạn</span>
               <span className="ag-session-pill__v">{exp}</span>
             </div>
             <button type="button" className="ag-btn ag-btn--ghost" onClick={logout}>
@@ -176,10 +184,3 @@ function IconInbox() {
   );
 }
 
-function IconUpload() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
-      <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" />
-    </svg>
-  );
-}

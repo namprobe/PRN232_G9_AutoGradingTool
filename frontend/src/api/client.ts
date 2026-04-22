@@ -1,4 +1,6 @@
 import type { ApiResult } from "./types";
+import { parseResponseAsApiResult } from "./parseApiResult";
+import { describeHttpStatus } from "../lib/httpStatusVi";
 
 const baseUrl = (): string => {
   const u = import.meta.env.VITE_API_BASE_URL;
@@ -12,8 +14,18 @@ const baseUrl = (): string => {
   return String(u).replace(/\/$/, "");
 };
 
-export async function apiFetch<T>(
-  path: string,
+function networkFailureResult<T>(e: unknown): ApiResult<T> {
+  const hint = e instanceof Error ? e.message : "Không xác định";
+  return {
+    isSuccess: false,
+    message: `Không kết nối được máy chủ (${hint}). [0 — ${describeHttpStatus(0)}]`,
+    httpStatus: 0,
+  };
+}
+
+/** fetch tới URL đầy đủ (vd. baseUrl + path), luôn trả ApiResult — dùng cho multipart. */
+export async function fetchAsApiResult<T>(
+  absoluteUrl: string,
   options: RequestInit & { token?: string | null } = {}
 ): Promise<ApiResult<T>> {
   const { token, headers: initHeaders, ...rest } = options;
@@ -24,9 +36,19 @@ export async function apiFetch<T>(
   if (token) {
     headers.set("Authorization", `Bearer ${token}`);
   }
-  const res = await fetch(`${baseUrl()}${path}`, { ...rest, headers });
-  const json = (await res.json()) as ApiResult<T>;
-  return json;
+  try {
+    const res = await fetch(absoluteUrl, { ...rest, headers });
+    return await parseResponseAsApiResult<T>(res, { authTokenSent: Boolean(token) });
+  } catch (e) {
+    return networkFailureResult<T>(e);
+  }
+}
+
+export async function apiFetch<T>(
+  path: string,
+  options: RequestInit & { token?: string | null } = {}
+): Promise<ApiResult<T>> {
+  return fetchAsApiResult<T>(`${baseUrl()}${path}`, options);
 }
 
 export { baseUrl };

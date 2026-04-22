@@ -1,5 +1,5 @@
 import { useApiMock } from "../config/env";
-import { apiFetch, baseUrl } from "./client";
+import { apiFetch, baseUrl, fetchAsApiResult } from "./client";
 import type { ApiResult } from "./types";
 import type {
   CreateExamQuestionBody,
@@ -295,14 +295,11 @@ export async function cmsUploadPackAsset(
   const formData = new FormData();
   formData.append("kind", String(kind));
   formData.append("file", file);
-  const headers = new Headers();
-  if (token) headers.set("Authorization", `Bearer ${token}`);
-  const res = await fetch(`${baseUrl()}/api/cms/grading/grading-packs/${packId}/assets`, {
+  return fetchAsApiResult<ExamPackAssetListItem>(`${baseUrl()}/api/cms/grading/grading-packs/${packId}/assets`, {
     method: "POST",
     body: formData,
-    headers,
+    token,
   });
-  return (await res.json()) as ApiResult<ExamPackAssetListItem>;
 }
 
 export async function cmsDeletePackAsset(token: string | null, assetId: string): Promise<ApiResult<boolean>> {
@@ -322,12 +319,9 @@ export async function studentSubmitZip(token: string | null, formData: FormData)
     const sn = formData.get("studentName");
     return mockCreateSubmission(sessionId, studentCode, sn != null ? String(sn) : undefined);
   }
-  const headers = new Headers();
-  if (token) headers.set("Authorization", `Bearer ${token}`);
-  const res = await fetch(`${baseUrl()}/api/student/grading/submissions`, {
+  return fetchAsApiResult<string>(`${baseUrl()}/api/student/grading/submissions`, {
     method: "POST",
     body: formData,
-    headers,
+    token,
   });
-  return (await res.json()) as ApiResult<string>;
 }

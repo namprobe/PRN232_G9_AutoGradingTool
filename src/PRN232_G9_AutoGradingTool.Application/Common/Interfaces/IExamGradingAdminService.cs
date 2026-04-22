@@ -40,4 +40,13 @@ public interface IExamGradingAdminService
         CancellationToken cancellationToken = default);
 
     Task<Result<bool>> DeletePackAssetAsync(Guid assetId, CancellationToken cancellationToken = default);
+
+    Task<Result<List<ExamClassListItemDto>>> ListExamClassesAsync(Guid semesterId, CancellationToken cancellationToken = default);
+    Task<Result<ExamClassListItemDto>> CreateExamClassAsync(Guid semesterId, CreateExamClassRequest req, CancellationToken cancellationToken = default);
+    Task<Result<ExamClassListItemDto>> UpdateExamClassAsync(Guid id, UpdateExamClassRequest req, CancellationToken cancellationToken = default);
+    Task<Result<bool>> DeleteExamClassAsync(Guid id, CancellationToken cancellationToken = default);
+
+    Task<Result<List<ExamSessionClassListItemDto>>> ListExamSessionClassesAsync(Guid examSessionId, CancellationToken cancellationToken = default);
+    Task<Result<ExamSessionClassListItemDto>> CreateExamSessionClassAsync(Guid examSessionId, CreateExamSessionClassRequest req, CancellationToken cancellationToken = default);
+    Task<Result<bool>> DeleteExamSessionClassAsync(Guid examSessionClassId, CancellationToken cancellationToken = default);
 }

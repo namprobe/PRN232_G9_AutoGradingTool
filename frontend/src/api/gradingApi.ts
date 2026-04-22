@@ -1,5 +1,5 @@
 import { useApiMock } from "../config/env";
-import { apiFetch, baseUrl } from "./client";
+import { apiFetch, baseUrl, fetchAsApiResult } from "./client";
 import type { ApiResult } from "./types";
 import type {
   ExamSessionDetail,
@@ -84,14 +84,11 @@ export async function createSubmissionZip(
     const sn = formData.get("studentName");
     return mockCreateSubmission(sessionId, studentCode, sn != null ? String(sn) : undefined);
   }
-  const headers = new Headers();
-  if (token) headers.set("Authorization", `Bearer ${token}`);
-  const res = await fetch(`${baseUrl()}/api/cms/grading/submissions`, {
+  return fetchAsApiResult<string>(`${baseUrl()}/api/cms/grading/submissions`, {
     method: "POST",
     body: formData,
-    headers,
+    token,
   });
-  return (await res.json()) as ApiResult<string>;
 }
 
 export async function replaceSubmissionFile(
@@ -107,14 +104,11 @@ export async function replaceSubmissionFile(
   const formData = new FormData();
   formData.append("questionLabel", questionLabel);
   formData.append("zipFile", zipFile);
-  const headers = new Headers();
-  if (token) headers.set("Authorization", `Bearer ${token}`);
-  const res = await fetch(`${baseUrl()}/api/cms/grading/submissions/${submissionId}/files`, {
+  return fetchAsApiResult<boolean>(`${baseUrl()}/api/cms/grading/submissions/${submissionId}/files`, {
     method: "PUT",
     body: formData,
-    headers,
+    token,
   });
-  return (await res.json()) as ApiResult<boolean>;
 }
 
 export async function triggerRegrade(

@@ -8,6 +8,7 @@
 #
 # Swagger API trực tiếp: http://localhost:${API_PORT:-5000}/swagger
 # UI (qua nginx, /api proxy sang API): http://localhost:${FRONTEND_PORT:-5173}/
+# Cần BuildKit (mặc định Docker Desktop): cache npm trong bước build FE.
 
 services:
   postgres:
@@ -86,6 +87,8 @@ services:
       args:
         # Rỗng = browser gọi /api/... cùng origin, nginx proxy sang service API
         VITE_API_BASE_URL: ""
+        # "false" = dùng backend trong compose; "true" chỉ khi cần UI với dữ liệu giả
+        VITE_USE_API_MOCK: "false"
     container_name: autogradingtool-frontend
     ports:
       - "${FRONTEND_PORT:-5173}:80"

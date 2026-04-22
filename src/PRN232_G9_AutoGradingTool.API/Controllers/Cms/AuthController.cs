@@ -16,8 +16,6 @@ namespace PRN232_G9_AutoGradingTool.API.Controllers.Cms;
 [ApiController]
 [Route("api/cms/auth")]
 [ApiExplorerSettings(GroupName = "v1")]
-[Configurations.Tags("CMS", "CMS_Auth")]
-[SwaggerTag("This API is used for Authentication for CMS website")]
 public class AuthController : ControllerBase
 {
     private readonly IMediator _mediator;
@@ -55,9 +53,7 @@ public class AuthController : ControllerBase
     [SwaggerOperation(
         Summary = "Login to the CMS system",
         Description = "This API is used for Authentication for CMS website",
-        OperationId = "Login",
-        Tags = new[] { "CMS", "CMS_Auth" }
-    )]
+        OperationId = "Login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
         var command = new LoginCommand(request);
@@ -91,9 +87,7 @@ public class AuthController : ControllerBase
     [SwaggerOperation(
         Summary = "Logout from the CMS system",
         Description = "This API is used for Logging out from the CMS website",
-        OperationId = "Logout",
-        Tags = new[] { "CMS", "CMS_Auth" }
-    )]
+        OperationId = "Logout")]
     public async Task<IActionResult> Logout()
     {
         var command = new LogoutCommand();
@@ -129,9 +123,7 @@ public class AuthController : ControllerBase
     [SwaggerOperation(
         Summary = "Get profile of the logged-in user in cms system",
         Description = "This API retrieves the profile information of the currently cms authenticated user",
-        OperationId = "GetProfile",
-        Tags = new[] { "CMS", "CMS_Auth" }
-    )]
+        OperationId = "GetProfile")]
     public async Task<IActionResult> GetProfile()
     {
         var query = new GetProfileQuery();
@@ -168,9 +160,7 @@ public class AuthController : ControllerBase
     [SwaggerOperation(
         Summary = "Refresh token for the logged-in user in cms system",
         Description = "This API refesh access token of the currently authenticated cms user",
-        OperationId = "RefreshToken",
-        Tags = new[] { "CMS", "CMS_Auth" }
-    )]
+        OperationId = "RefreshToken")]
     public async Task<IActionResult> RefreshToken()
     {
         var query = new RefreshTokenCommand();

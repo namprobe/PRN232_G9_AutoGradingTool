@@ -19,53 +19,27 @@ public static class SwaggerConfiguration
             // Configure basic information
             options.SwaggerDoc("v1", new OpenApiInfo
             {
-                Title = "PRN232_G9_AutoGradingTool API",
+                Title = "PRN232 G9 — Auto Grading API",
                 Version = "v1",
-                Description = "API for PRN232_G9_AutoGradingTool"
+                Description =
+                    "Nhóm endpoint trên Swagger UI được sắp theo tiền tố **01–09** (xem từng tag). " +
+                    "Luồng gợi ý: **01** lấy JWT → **02–08** quản trị đề & bài nộp → **09** nộp bài SV."
             });
-            
-            // Cấu hình phân nhóm API theo controller
+
             options.TagActionsBy(api =>
             {
-                // Ưu tiên sử dụng Tags từ attribute được đặt trên controller hoặc action
-                var controllerTags = api.ActionDescriptor.EndpointMetadata
-                    .OfType<TagsAttribute>()
-                    .SelectMany(attr => attr.Tags)
-                    .Distinct();
-                    
-                if (controllerTags.Any())
-                {
-                    // Nếu tìm thấy tag từ attribute
-                    return controllerTags.ToList();
-                }
-                
-                // Lấy tên controller
-                var controllerName = api.ActionDescriptor.RouteValues["controller"];
-                
-                // Xác định nhóm chính (Mobile/CMS) dựa trên đường dẫn
-                var relativePath = api.RelativePath?.ToLower();
-                string mainTag;
-                
-                if (relativePath?.Contains("/cms/") == true)
-                {
-                    mainTag = "CMS";
-                }
-                else if (relativePath?.Contains("/public") == true)
-                {
-                    mainTag = "Public";
-                }
-                else
-                {
-                    // Fallback nếu không phát hiện được nhóm
-                    return new[] { controllerName };
-                }
-                
-                var combinedTag = $"{mainTag}_{controllerName}";
-                return new[] { mainTag, combinedTag };
+                var path = api.RelativePath;
+                return new[] { SwaggerTagResolver.Resolve(path) };
             });
-            
-            // Sắp xếp theo tag
-            options.OrderActionsBy(apiDesc => $"{apiDesc.GroupName}");
+
+            options.OrderActionsBy(apiDesc =>
+            {
+                var path = apiDesc.RelativePath ?? "";
+                var tag = SwaggerTagResolver.Resolve(path);
+                return $"{tag}\u2003{apiDesc.HttpMethod}\u2003{path}";
+            });
+
+            options.DocumentFilter<SwaggerTagDescriptionDocumentFilter>();
             
             // Configure JWT authentication in Swagger
             options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
@@ -129,7 +103,7 @@ public static class SwaggerConfiguration
         
         app.UseSwaggerUI(options =>
         {
-            options.SwaggerEndpoint("/swagger/v1/swagger.json", "PRN232_G9_AutoGradingTool API v1");
+            options.SwaggerEndpoint("/swagger/v1/swagger.json", "PRN232 G9 Auto Grading — v1");
             options.RoutePrefix = "swagger";
             options.DocExpansion(Swashbuckle.AspNetCore.SwaggerUI.DocExpansion.List);
             options.EnableDeepLinking();
@@ -146,24 +120,3 @@ public static class SwaggerConfiguration
         return app;
     }
 }
-
-/// <summary>
-/// Attribute to specify application group and controller group for API controllers
-/// </summary>
-[AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, AllowMultiple = false)]
-public class TagsAttribute : Attribute
-{
-    /// <summary>
-    /// Gets the tags used by the action or controller
-    /// </summary>
-    public string[] Tags { get; }
-
-    /// <summary>
-    /// Creates a new TagsAttribute with the specified tags
-    /// </summary>
-    /// <param name="tags">The tags to apply to the action or controller</param>
-    public TagsAttribute(params string[] tags)
-    {
-        Tags = tags;
-    }
-} 

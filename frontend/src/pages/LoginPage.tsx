@@ -1,9 +1,11 @@
 import { FormEvent, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { useApiMock } from "../config/env";
 
 export function LoginPage() {
   const { login } = useAuth();
+  const apiMock = useApiMock();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -31,14 +33,15 @@ export function LoginPage() {
           <div className="ag-auth__brandmark">
             <span className="ag-logo ag-logo--xl" aria-hidden />
           </div>
-          <h1 className="ag-auth__headline">Auto Grading CMS</h1>
+          <h1 className="ag-auth__headline">Chấm bài tự động</h1>
           <p className="ag-auth__lede">
-            Chấm zip PRN232 tự động — theo dõi testcase, Hangfire và kết quả từng ca thi trong một giao diện thống nhất.
+            Chấm bài zip PRN232 tự động — theo dõi từng bài kiểm tra, hàng đợi chấm và kết quả theo từng ca thi trong một
+            giao diện thống nhất.
           </p>
           <ul className="ag-auth__bullets">
-            <li>Hai tệp zip Q1 / Q2 cho mỗi lần nộp</li>
-            <li>Pipeline chấm & phản hồi điểm theo đề</li>
-            <li>Đa vai trò & JWT an toàn</li>
+            <li>Hai tệp zip (câu 1 và câu 2) cho mỗi lần nộp</li>
+            <li>Trạng thái chấm và điểm theo đúng đề thi</li>
+            <li>Đăng nhập bảo mật cho tài khoản quản trị</li>
           </ul>
         </div>
       </div>
@@ -93,8 +96,10 @@ export function LoginPage() {
           </form>
 
           <p className="ag-auth__fineprint">
-            © PRN232 G9 — nếu <code className="ag-code ag-code--sm">VITE_USE_API_MOCK=true</code> thì đăng nhập bất kỳ
-            email/mật khẩu hợp lệ đều vào được (chỉ để demo UI).
+            © PRN232 G9 —{" "}
+            {apiMock
+              ? "Đang bật chế độ thử: mọi email và mật khẩu đúng định dạng đều có thể đăng nhập để xem giao diện."
+              : "Dùng tài khoản do quản trị hệ thống cấp."}
           </p>
         </div>
       </div>

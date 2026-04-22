@@ -11,7 +11,6 @@ namespace PRN232_G9_AutoGradingTool.API.Controllers.Student;
 [ApiController]
 [Route("api/student/grading")]
 [ApiExplorerSettings(GroupName = "v1")]
-[Configurations.Tags("Student", "Student_Grading")]
 public class StudentGradingController : ControllerBase
 {
     private readonly IExamGradingAppService _grading;
@@ -26,14 +25,14 @@ public class StudentGradingController : ControllerBase
     [SwaggerOperation(
         Summary = "[SV] Nộp 2 zip Q1/Q2 — lưu storage qua FileServiceFactory",
         Description = "Chỉ chấp nhận trong khung giờ ca thi (UTC): StartsAtUtc ≤ now ≤ EndsAtUtc.",
-        OperationId = "Student_SubmitZipSubmission",
-        Tags = new[] { "Student_Grading" })]
+        OperationId = "Student_SubmitZipSubmission")]
     [ProducesResponseType(typeof(Result<Guid>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(Result<object>), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> SubmitSubmission(
         [FromForm] Guid examSessionId,
         [FromForm] string studentCode,
         [FromForm] string? studentName,
+        [FromForm] Guid? examSessionClassId,
         IFormFile q1Zip,
         IFormFile q2Zip,
         CancellationToken cancellationToken)
@@ -48,6 +47,7 @@ public class StudentGradingController : ControllerBase
             q1Zip,
             q2Zip,
             bypassExamWindow: false,
+            examSessionClassId,
             cancellationToken);
         return StatusCode(r.GetHttpStatusCode(), r);
     }

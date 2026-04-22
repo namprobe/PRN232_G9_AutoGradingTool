@@ -1,87 +1,79 @@
 import { Link } from "react-router-dom";
+import { workflowStatusLabel } from "../lib/gradingUi";
 
 /**
- * Nội dung bám `docs/SYSTEM_FLOWS.md` + entity domain — giúp FE/BA cùng ngôn ngữ với BE.
- * (Không thay thế tài liệu repo; chỉ là “bản tóm tắt có liên kết” trong CMS.)
+ * Tóm tắt luồng nghiệp vụ (tham chiếu tài liệu trong repo). Diễn đạt bằng ngôn ngữ người dùng, không nhấn mạnh thuật ngữ lập trình.
  */
 export function SystemFlowsPage() {
   return (
     <div className="ag-stack ag-stack--lg">
       <section className="ag-card ag-animate-in">
         <div className="ag-card__head">
-          <h2 className="ag-card__title">Entity → giao diện CMS</h2>
+          <h2 className="ag-card__title">Các phần chính trong hệ thống</h2>
           <p className="ag-card__desc">
-            Giao diện hiện tại dựa trên các thực thể chính: học kỳ, ca thi, chủ đề/câu/testcase, bài nộp, file theo câu,
-            pack chấm, job chấm.
+            Giao diện bám sát nghiệp vụ: học kỳ, ca thi, đề (chủ đề — câu — bài kiểm tra), bài nộp, gói chấm và hàng đợi
+            chấm bài.
           </p>
         </div>
         <div className="ag-table-wrap">
           <table className="ag-table">
             <thead>
               <tr>
-                <th>Entity / nhóm</th>
-                <th>Trường / quan hệ quan trọng</th>
-                <th>Trên CMS</th>
+                <th>Đối tượng</th>
+                <th>Vai trò</th>
+                <th>Trên ứng dụng</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td>
-                  <code className="ag-code">Semester</code>
-                </td>
-                <td className="ag-table__muted">Code, Name, khoảng thời gian</td>
+                <td className="ag-table__strong">Học kỳ</td>
+                <td className="ag-table__muted">Khung thời gian và mã định danh kỳ học</td>
                 <td>
                   <Link to="/semesters" className="ag-linkbtn">
-                    Học kỳ
+                    Trang học kỳ
                   </Link>
                 </td>
               </tr>
               <tr>
-                <td>
-                  <code className="ag-code">ExamSession</code>
-                </td>
-                <td className="ag-table__muted">
-                  SemesterId, StartsAtUtc, ExamDurationMinutes, EndsAtUtc → Topics → Questions → TestCases
-                </td>
+                <td className="ag-table__strong">Ca thi</td>
+                <td className="ag-table__muted">Một phiên thi: lịch mở — đóng, thời lượng, cây đề và gói chấm</td>
                 <td>
                   <Link to="/exam-sessions" className="ag-linkbtn">
                     Danh sách ca
                   </Link>
-                  <span className="ag-table__muted"> — bấm “Chi tiết đề” trên một dòng để xem topic / question / testcase.</span>
+                  <span className="ag-table__muted"> — mở chi tiết để xem chủ đề, câu hỏi và bài kiểm tra.</span>
                 </td>
               </tr>
               <tr>
-                <td>
-                  <code className="ag-code">ExamSubmission</code> + <code className="ag-code">ExamSubmissionFile</code>
-                </td>
-                <td className="ag-table__muted">
-                  WorkflowStatus, ExamGradingPackId?, SubmissionFiles (QuestionLabel, path, tên file)
-                </td>
+                <td className="ag-table__strong">Bài nộp</td>
+                <td className="ag-table__muted">Mỗi lần nộp gồm tệp zip theo câu, trạng thái chấm và điểm</td>
                 <td>
                   <Link to="/submissions" className="ag-linkbtn">
                     Bài nộp
-                  </Link>{" "}
-                  · chi tiết: file + điểm câu + testcase + admin thay file / regrade
+                  </Link>
+                  <span className="ag-table__muted">
+                    {" "}
+                    — xem chi tiết: tệp đính kèm, điểm từng câu; quản trị có thể thay tệp và chấm lại.
+                  </span>
                 </td>
               </tr>
               <tr>
-                <td>
-                  <code className="ag-code">ExamGradingPack</code> + <code className="ag-code">ExamPackAsset</code>
-                </td>
-                <td className="ag-table__muted">Version, IsActive, Label, Assets</td>
+                <td className="ag-table__strong">Gói chấm</td>
+                <td className="ag-table__muted">Script và tài liệu phục vụ chấm tự động, gắn với ca thi</td>
                 <td>
                   <Link to="/grading-pack" className="ag-linkbtn">
-                    Pack &amp; asset
-                  </Link>{" "}
-                  (REST list/upload theo kế hoạch trong tài liệu)
+                    Giới thiệu gói chấm
+                  </Link>
+                  <span className="ag-table__muted"> — thao tác thực tế nằm trong chi tiết ca.</span>
                 </td>
               </tr>
               <tr>
-                <td>
-                  <code className="ag-code">GradingJob</code>
+                <td className="ag-table__strong">Tác vụ chấm</td>
+                <td className="ag-table__muted">Xử lý nền sau khi hết giờ hoặc khi yêu cầu chấm lại</td>
+                <td className="ag-table__muted">
+                  Trạng thái hiển thị trên bài nộp; theo dõi sâu hơn (hàng đợi, nhật ký) do vận hành cấu hình ngoài giao diện
+                  này.
                 </td>
-                <td className="ag-table__muted">Trigger SessionEnd | ManualRegrade, JobStatus, liên kết Pack + Submission</td>
-                <td className="ag-table__muted">Phản hồi sau POST regrade (job id, trạng thái); theo dõi đầy đủ qua API/Hangfire sau này</td>
               </tr>
             </tbody>
           </table>
@@ -90,49 +82,46 @@ export function SystemFlowsPage() {
 
       <section className="ag-card ag-animate-in">
         <div className="ag-card__head">
-          <h2 className="ag-card__title">Bốn luồng chính (system flow)</h2>
-          <p className="ag-card__desc">Theo thứ tự nghiệp vụ trong `docs/SYSTEM_FLOWS.md`</p>
+          <h2 className="ag-card__title">Bốn bước nghiệp vụ chính</h2>
+          <p className="ag-card__desc">Thứ tự làm việc thông thường (tham chiếu tài liệu luồng trong repo)</p>
         </div>
         <ol className="ag-stack ag-stack--md" style={{ margin: 0, paddingLeft: "1.25rem" }}>
           <li>
-            <strong>Proctor chuẩn bị ca</strong> — tạo <code className="ag-code ag-code--sm">ExamSession</code>, cây đề,{" "}
-            <code className="ag-code ag-code--sm">ExamGradingPack</code> active, có thể gia hạn <code className="ag-code ag-code--sm">EndsAtUtc</code>.
+            <strong>Chuẩn bị ca</strong> — tạo ca thi, dựng đề (chủ đề, câu, bài kiểm tra), cấu hình gói chấm đang dùng và
+            có thể gia hạn thời điểm đóng nộp.
           </li>
           <li>
-            <strong>Sinh viên nộp bài</strong> — lưu zip, <code className="ag-code ag-code--sm">ExamSubmission</code> +{" "}
-            <code className="ag-code ag-code--sm">ExamSubmissionFile</code>; production: portal ngoài scope; demo:{" "}
-            <Link to="/submissions/upload" className="ag-linkbtn">
-              POST submissions
+            <strong>Thí sinh nộp bài</strong> — hệ thống lưu tệp zip theo từng câu; trên môi trường demo bạn có thể nộp qua{" "}
+            <Link to="/exam-sessions" className="ag-linkbtn">
+              Ca thi → Nộp ZIP
             </Link>
             .
           </li>
           <li>
-            <strong>Chấm tự động</strong> — sau <code className="ag-code ag-code--sm">EndsAtUtc</code>, trigger{" "}
-            <code className="ag-code ag-code--sm">SessionEnd</code>, enqueue <code className="ag-code ag-code--sm">GradingJob</code> hàng loạt.
+            <strong>Chấm tự động</strong> — sau khi đến mốc đóng ca, hệ thống xếp hàng chấm hàng loạt theo gói đã cấu hình.
           </li>
           <li>
-            <strong>Chấm thủ công / sự cố</strong> — admin{" "}
-            <code className="ag-code ag-code--sm">PUT …/submissions/{"{id}"}/files</code> rồi{" "}
-            <code className="ag-code ag-code--sm">POST …/regrade</code> (<code className="ag-code ag-code--sm">ManualRegrade</code>).
+            <strong>Xử lý thủ công khi cần</strong> — quản trị thay tệp zip của một câu rồi yêu cầu chấm lại ngay trên trang
+            chi tiết bài nộp.
           </li>
         </ol>
       </section>
 
       <section className="ag-card ag-animate-in">
         <div className="ag-card__head">
-          <h2 className="ag-card__title">WorkflowStatus (ExamSubmission)</h2>
-          <p className="ag-card__desc">Giá trị API trả về dạng chuỗi enum</p>
+          <h2 className="ag-card__title">Trạng thái trên một bài nộp</h2>
+          <p className="ag-card__desc">Diễn giải giá trị hệ thống trả về — hiển thị ở danh sách và trang chi tiết</p>
         </div>
         <p className="ag-table__muted" style={{ marginTop: 0 }}>
-          <code className="ag-code">Pending</code> → <code className="ag-code">Queued</code> → <code className="ag-code">Running</code> →{" "}
-          <code className="ag-code">Completed</code> hoặc <code className="ag-code">Failed</code>. Hiển thị trên danh sách và chi tiết bài nộp.
+          {workflowStatusLabel("Pending")} → {workflowStatusLabel("Queued")} → {workflowStatusLabel("Running")} →{" "}
+          {workflowStatusLabel("Completed")} hoặc {workflowStatusLabel("Failed")}.
         </p>
       </section>
 
       <div className="ag-alert ag-alert--info" role="status">
-        <strong>Đối chiếu triển khai hiện tại:</strong> Nhóm <code className="ag-code ag-code--sm">CMS_Grading</code> đã có GET semester / exam-session / submission
-        và upload + thay file + regrade. Các endpoint mô tả trong tài liệu cho tạo ca, pack, reschedule (POST/PATCH) có thể chưa mở — khi BE bổ sung,
-        các trang tương ứng sẽ gọi API thay cho ghi chú “seed / SQL”.
+        <strong>Ghi chú triển khai:</strong> Các chức năng xem học kỳ, ca thi, danh sách bài nộp, nộp zip, thay tệp và chấm
+        lại đã có trên giao diện này. Nếu backend bổ sung thêm thao tác (ví dụ lên lịch lại ca), các trang tương ứng sẽ được
+        cập nhật sau — không cần bạn đọc tài liệu kỹ thuật để dùng các bước cơ bản ở trên.
       </div>
     </div>
   );

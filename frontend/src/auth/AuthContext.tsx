@@ -2,10 +2,12 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from "react";
+import { useNavigate } from "react-router-dom";
 import { login as loginApi } from "../api/auth";
 import type { AuthResponse } from "../api/types";
 
@@ -24,6 +26,7 @@ type AuthContextValue = AuthState & {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const navigate = useNavigate();
   const [token, setToken] = useState<string | null>(() => localStorage.getItem(STORAGE_KEY));
   const [user, setUser] = useState<Pick<AuthResponse, "expiresAt" | "roles"> | null>(null);
 
@@ -32,6 +35,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(null);
     setUser(null);
   }, []);
+
+  useEffect(() => {
+    const onSessionExpired = () => {
+      logout();
+      navigate("/login", { replace: true });
+    };
+    window.addEventListener("ag-http-401", onSessionExpired);
+    return () => window.removeEventListener("ag-http-401", onSessionExpired);
+  }, [logout, navigate]);
 
   const login = useCallback(async (email: string, password: string) => {
     const res = await loginApi({ email, password });

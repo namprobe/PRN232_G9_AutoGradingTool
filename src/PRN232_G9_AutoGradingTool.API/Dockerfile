@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
@@ -7,7 +8,8 @@ COPY ["src/PRN232_G9_AutoGradingTool.Application/PRN232_G9_AutoGradingTool.Appli
 COPY ["src/PRN232_G9_AutoGradingTool.Domain/PRN232_G9_AutoGradingTool.Domain.csproj", "PRN232_G9_AutoGradingTool.Domain/"]
 COPY ["src/PRN232_G9_AutoGradingTool.Infrastructure/PRN232_G9_AutoGradingTool.Infrastructure.csproj", "PRN232_G9_AutoGradingTool.Infrastructure/"]
 
-RUN dotnet restore "PRN232_G9_AutoGradingTool.API/PRN232_G9_AutoGradingTool.API.csproj"
+RUN --mount=type=cache,id=nuget-autograding,target=/root/.nuget/packages \
+    dotnet restore "PRN232_G9_AutoGradingTool.API/PRN232_G9_AutoGradingTool.API.csproj"
 
 # Copy all sources (including Resources)
 COPY src/ .
@@ -25,10 +27,12 @@ COPY src/PRN232_G9_AutoGradingTool.Application/Resources/ ./PRN232_G9_AutoGradin
 
 WORKDIR /src/PRN232_G9_AutoGradingTool.API
 
-RUN dotnet build "PRN232_G9_AutoGradingTool.API.csproj" -c Release -o /app/build
+RUN --mount=type=cache,id=nuget-autograding,target=/root/.nuget/packages \
+    dotnet build "PRN232_G9_AutoGradingTool.API.csproj" -c Release -o /app/build
 
 FROM build AS publish
-RUN dotnet publish "PRN232_G9_AutoGradingTool.API.csproj" -c Release -o /app/publish /p:UseAppHost=false
+RUN --mount=type=cache,id=nuget-autograding,target=/root/.nuget/packages \
+    dotnet publish "PRN232_G9_AutoGradingTool.API.csproj" -c Release -o /app/publish /p:UseAppHost=false
 
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
 WORKDIR /app
