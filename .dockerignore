@@ -1,102 +1,29 @@
-# .NET Core
+# API build context = repo root (docker-compose)
+.git
+.github
+**/.vs
+**/.vscode
+**/.idea
+
 **/bin/
 **/obj/
-**/*.dll
-**/*.pdb
-**/*.exe
+**/out/
+**/*.user
+**/*.suo
 
-# Build results
-[Dd]ebug/
-[Dd]ebugPublic/
-[Rr]elease/
-[Rr]eleases/
-x64/
-x86/
-bld/
-[Bb]in/
-[Oo]bj/
-[Ll]og/
-[Ll]ogs/
+frontend/node_modules
+frontend/dist
+**/node_modules
 
-# IDE
-.vs/
-.vscode/
-.idea/
-*.suo
-*.user
-*.userosscache
-*.sln.docstates
-*.code-workspace
-
-# Test Results
-[Tt]est[Rr]esult*/
-[Bb]uild[Ll]og.*
-*.VisualState.xml
-TestResults/
-coverage/
-
-# NuGet
-*.nupkg
-*.snupkg
-**/packages/*
-*.nuget.props
-*.nuget.targets
-project.lock.json
-project.fragment.lock.json
-artifacts/
-
-# Database
-*.db
-*.db-shm
-*.db-wal
-*.sqlite
-*.sqlite3
-
-# Environment Files
-.env
-.env.*
-!.env.example
-secrets.json
-
-# OS Files
-.DS_Store
-.DS_Store?
-._*
-Thumbs.db
-ehthumbs.db
-
-# Docker
-.docker/
-
-# Git
-.git/
-.gitignore
-.gitattributes
-
-# Documentation
-*.md
-docs/
-_site/
-
-# Logs
-logs/
-log/
+uploads
+**/Logs
 *.log
 
-# Temporary files
-tmp/
-temp/
-*.tmp
+.env
+.env.local
+.env.docker
+.env.development
+.env.production
 
-# Node modules (if any)
-node_modules/
-bower_components/
-
-# Publishing
-[Pp]ublish/
-[Pp]ublished/
-
-# Uploaded files (runtime data, should not be in Docker image)
-uploads/
-**/uploads/
-**/wwwroot/uploads/
+*.md
+docs/

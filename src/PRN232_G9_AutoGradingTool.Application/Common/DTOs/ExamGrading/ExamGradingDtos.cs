@@ -11,6 +11,7 @@ public record ExamSessionListItemDto(
     DateTime StartsAtUtc,
     int ExamDurationMinutes,
     DateTime EndsAtUtc,
+    bool DeferredClassGrading,
     int TopicCount,
     int QuestionCount,
     int SubmissionCount);
@@ -35,6 +36,8 @@ public record ExamTestCaseDetailDto(Guid Id, string Name, decimal MaxPoints, int
 public record ExamSubmissionListItemDto(
     Guid Id,
     Guid ExamSessionId,
+    Guid? ExamSessionClassId,
+    string? ClassCode,
     string StudentCode,
     string? StudentName,
     string Status,
@@ -45,6 +48,8 @@ public record ExamSubmissionDetailDto(
     Guid Id,
     Guid ExamSessionId,
     string ExamSessionCode,
+    Guid? ExamSessionClassId,
+    string? ClassCode,
     string StudentCode,
     string? StudentName,
     string Status,

@@ -24,25 +24,33 @@ export function GradingPackInfoPage() {
         <Link to="/system-flows" className="ag-linkbtn">
           Luồng hệ thống
         </Link>
-        . Hiện <strong>chưa có</strong> endpoint REST trong nhóm <code className="ag-code ag-code--sm">CMS_Grading</code>{" "}
-        để liệt kê pack hay upload asset qua UI. Dữ liệu mẫu đến từ seeder (
-        <code className="ag-code ag-code--sm">ExamGradingPackSeeder</code>). Khi nhóm thêm GET/POST pack, trang này sẽ
-        thay bằng bảng và form thật.
+        . Trên CMS đã có{" "}
+        <code className="ag-code ag-code--sm">GET/POST …/exam-sessions/{"{sessionId}"}/grading-packs</code>,{" "}
+        <code className="ag-code ag-code--sm">PUT/DELETE …/grading-packs/{"{packId}"}</code> và upload asset{" "}
+        <code className="ag-code ag-code--sm">POST …/grading-packs/{"{packId}"}/assets</code> (multipart). Vào chi tiết
+        một ca thi để tạo pack, bật active và tải file script/rubric.
       </div>
 
       <section className="ag-card ag-animate-in">
         <div className="ag-card__head">
-          <h2 className="ag-card__title">Việc cần làm phía backend (gợi ý)</h2>
-          <p className="ag-card__desc">Để khớp backlog “pack + asset” trên CMS</p>
+          <h2 className="ag-card__title">Thao tác trên UI</h2>
+          <p className="ag-card__desc">Quản lý pack theo từng ca thi</p>
         </div>
         <ul className="ag-stack ag-stack--sm" style={{ paddingLeft: "1.2rem", margin: 0 }}>
           <li>
-            <code className="ag-code">GET …/exam-sessions/{"{id}"}/grading-pack</code> — pack active + danh sách asset
+            <Link to="/exam-sessions" className="ag-linkbtn">
+              Danh sách ca thi
+            </Link>{" "}
+            → mở một ca → mục grading pack &amp; upload asset.
           </li>
           <li>
-            <code className="ag-code">POST …/grading-pack/{"{id}"}/assets</code> — multipart upload
+            Học sinh nộp zip:{" "}
+            <Link to="/submissions/upload" className="ag-linkbtn">
+              Tải lên zip
+            </Link>{" "}
+            (chọn kênh student API hoặc
+            CMS).
           </li>
-          <li>Swagger tag ví dụ <code className="ag-code">CMS_GradingPack</code></li>
         </ul>
       </section>
     </div>

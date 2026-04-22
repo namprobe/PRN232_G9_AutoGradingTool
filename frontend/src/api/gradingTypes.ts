@@ -110,3 +110,53 @@ export type TriggerRegradeResponse = {
   jobStatus: string;
   message: string;
 };
+
+/** —— CMS admin (JSON body khớp record C# camelCase) —— */
+
+export type CreateSemesterBody = {
+  code: string;
+  name: string;
+  startDateUtc: string | null;
+  endDateUtc: string | null;
+};
+
+export type UpdateSemesterBody = CreateSemesterBody;
+
+export type CreateExamSessionBody = {
+  semesterId: string;
+  code: string;
+  title: string;
+  startsAtUtc: string;
+  examDurationMinutes: number;
+  endsAtUtc: string;
+};
+
+export type UpdateExamSessionBody = CreateExamSessionBody;
+
+export type CreateExamTopicBody = { title: string; sortOrder: number };
+export type UpdateExamTopicBody = CreateExamTopicBody;
+
+export type CreateExamQuestionBody = { label: string; title: string; maxScore: number };
+export type UpdateExamQuestionBody = CreateExamQuestionBody;
+
+export type CreateExamTestCaseBody = { name: string; maxPoints: number; sortOrder: number };
+export type UpdateExamTestCaseBody = CreateExamTestCaseBody;
+
+export type CreateGradingPackBody = { label: string; version: number | null; isActive: boolean };
+export type UpdateGradingPackBody = { label: string; isActive: boolean };
+
+export type ExamGradingPackListItem = {
+  id: string;
+  version: number;
+  label: string;
+  isActive: boolean;
+  assetCount: number;
+};
+
+export type ExamPackAssetListItem = {
+  id: string;
+  examGradingPackId: string;
+  kind: number;
+  storageRelativePath: string;
+  originalFileName: string | null;
+};

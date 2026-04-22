@@ -58,20 +58,31 @@ public static class EnvironmentConfiguration
     {
         try
         {
-            var repoRoot = Directory.GetCurrentDirectory();
-            var possiblePaths = new[]
+            var startDir = Directory.GetCurrentDirectory();
+            string? pathToLoad = null;
+            var dir = new DirectoryInfo(startDir);
+            for (var depth = 0; depth < 12 && dir != null; depth++)
             {
-                Path.Combine(repoRoot, fileName),
-                Path.Combine(repoRoot, "src", "PRN232_G9_AutoGradingTool.API", fileName),
-                Path.Combine(repoRoot, "docker", fileName)
-            };
-
-            foreach (var path in possiblePaths)
-            {
-                if (!File.Exists(path)) continue;
-                var lines = File.ReadAllLines(path);
-                foreach (var raw in lines)
+                var candidate = Path.Combine(dir.FullName, fileName);
+                if (File.Exists(candidate))
                 {
+                    pathToLoad = candidate;
+                    break;
+                }
+                dir = dir.Parent;
+            }
+
+            if (pathToLoad == null)
+            {
+                var dockerPath = Path.Combine(startDir, "docker", fileName);
+                if (File.Exists(dockerPath)) pathToLoad = dockerPath;
+            }
+
+            if (pathToLoad == null) return;
+
+            var lines = File.ReadAllLines(pathToLoad);
+            foreach (var raw in lines)
+            {
                     var line = raw.Trim();
                     if (string.IsNullOrEmpty(line) || line.StartsWith("#")) continue;
 
@@ -109,7 +120,6 @@ public static class EnvironmentConfiguration
                     {
                         builder.Configuration[configKey] = val;
                     }
-                }
             }
         }
         catch

@@ -17,12 +17,14 @@ public interface IExamGradingAppService
 
     Task<Result<ExamSubmissionDetailDto>> GetSubmissionAsync(Guid id, CancellationToken cancellationToken = default);
 
+    /// <param name="bypassExamWindow">CMS/admin: true để nộp hộ hoặc xử lý ngoài khung giờ. SV: false.</param>
     Task<Result<Guid>> CreateSubmissionWithZipAsync(
         Guid examSessionId,
         string studentCode,
         string? studentName,
         IFormFile q1Zip,
         IFormFile q2Zip,
+        bool bypassExamWindow = false,
         CancellationToken cancellationToken = default);
 
     /// <summary>

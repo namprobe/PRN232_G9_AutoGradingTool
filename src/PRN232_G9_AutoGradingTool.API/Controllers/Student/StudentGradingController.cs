@@ -1,0 +1,54 @@
+using Microsoft.AspNetCore.Mvc;
+using PRN232_G9_AutoGradingTool.Application.Common.Enums;
+using PRN232_G9_AutoGradingTool.Application.Common.Extensions;
+using PRN232_G9_AutoGradingTool.Application.Common.Interfaces;
+using PRN232_G9_AutoGradingTool.Application.Common.Models;
+using Swashbuckle.AspNetCore.Annotations;
+
+namespace PRN232_G9_AutoGradingTool.API.Controllers.Student;
+
+/// <summary>Giả lập portal nộp bài của SV — cùng luồng lưu file qua FileServiceFactory (local storage).</summary>
+[ApiController]
+[Route("api/student/grading")]
+[ApiExplorerSettings(GroupName = "v1")]
+[Configurations.Tags("Student", "Student_Grading")]
+public class StudentGradingController : ControllerBase
+{
+    private readonly IExamGradingAppService _grading;
+
+    public StudentGradingController(IExamGradingAppService grading)
+    {
+        _grading = grading;
+    }
+
+    [HttpPost("submissions")]
+    [Consumes("multipart/form-data")]
+    [SwaggerOperation(
+        Summary = "[SV] Nộp 2 zip Q1/Q2 — lưu storage qua FileServiceFactory",
+        Description = "Chỉ chấp nhận trong khung giờ ca thi (UTC): StartsAtUtc ≤ now ≤ EndsAtUtc.",
+        OperationId = "Student_SubmitZipSubmission",
+        Tags = new[] { "Student_Grading" })]
+    [ProducesResponseType(typeof(Result<Guid>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Result<object>), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> SubmitSubmission(
+        [FromForm] Guid examSessionId,
+        [FromForm] string studentCode,
+        [FromForm] string? studentName,
+        IFormFile q1Zip,
+        IFormFile q2Zip,
+        CancellationToken cancellationToken)
+    {
+        if (q1Zip == null || q2Zip == null || q1Zip.Length == 0 || q2Zip.Length == 0)
+            return BadRequest(Result<Guid>.Failure("Thiếu file zip.", ErrorCodeEnum.ValidationFailed));
+
+        var r = await _grading.CreateSubmissionWithZipAsync(
+            examSessionId,
+            studentCode,
+            studentName,
+            q1Zip,
+            q2Zip,
+            bypassExamWindow: false,
+            cancellationToken);
+        return StatusCode(r.GetHttpStatusCode(), r);
+    }
+}

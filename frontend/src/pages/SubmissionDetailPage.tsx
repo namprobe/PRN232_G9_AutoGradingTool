@@ -1,4 +1,4 @@
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { getSubmission, replaceSubmissionFile, triggerRegrade } from "../api/gradingApi";
@@ -22,6 +22,8 @@ function weightOf(tc: ExamTestCaseScore, all: ExamTestCaseScore[]): number {
 
 export function SubmissionDetailPage() {
   const { submissionId } = useParams<{ submissionId: string }>();
+  const location = useLocation();
+  const fromSessionId = (location.state as { fromSessionId?: string } | null)?.fromSessionId;
   const { token } = useAuth();
   const [detail, setDetail] = useState<ExamSubmissionDetail | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -63,6 +65,23 @@ export function SubmissionDetailPage() {
       cancelled = true;
     };
   }, [load, submissionId]);
+
+  useEffect(() => {
+    if (!detail) return;
+    const s = (detail.status || "").trim();
+    if (s !== "Running" && s !== "Queued") return;
+    const t = setInterval(() => {
+      void load();
+    }, 2500);
+    return () => clearInterval(t);
+  }, [detail, load]);
+
+  const listBackHref =
+    detail != null
+      ? `/submissions?examSessionId=${encodeURIComponent(detail.examSessionId)}`
+      : fromSessionId
+        ? `/submissions?examSessionId=${encodeURIComponent(fromSessionId)}`
+        : "/submissions";
 
   const maxScore = useMemo(() => (detail ? submissionMaxScore(detail) : 10), [detail]);
   const qPair = detail ? workflowToQPair(detail.status) : { q1: "pending" as const, q2: "pending" as const };
@@ -115,7 +134,7 @@ export function SubmissionDetailPage() {
       <div className="ag-empty ag-animate-in">
         <h2 className="ag-empty__title">Không tìm thấy bài nộp</h2>
         <p className="ag-empty__text">{err ?? "Không có dữ liệu"}</p>
-        <Link to="/submissions" className="ag-btn ag-btn--primary">
+        <Link to={listBackHref} className="ag-btn ag-btn--primary">
           Quay lại danh sách
         </Link>
       </div>
@@ -132,7 +151,7 @@ export function SubmissionDetailPage() {
     <div className="ag-stack ag-stack--lg">
       <div className="ag-detail-head ag-animate-in">
         <div>
-          <Link to="/submissions" className="ag-backlink">
+          <Link to={listBackHref} className="ag-backlink">
             ← Danh sách bài nộp
           </Link>
           <h2 className="ag-detail-head__title">
