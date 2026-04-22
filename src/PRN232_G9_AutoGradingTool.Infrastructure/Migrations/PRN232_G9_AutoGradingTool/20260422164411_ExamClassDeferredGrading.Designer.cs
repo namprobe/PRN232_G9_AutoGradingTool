@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using PRN232_G9_AutoGradingTool.Infrastructure.Context;
@@ -11,9 +12,11 @@ using PRN232_G9_AutoGradingTool.Infrastructure.Context;
 namespace PRN232_G9_AutoGradingTool.Infrastructure.Migrations.PRN232_G9_AutoGradingTool
 {
     [DbContext(typeof(PRN232_G9_AutoGradingToolDbContext))]
-    partial class PRN232_G9_AutoGradingToolDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260422164411_ExamClassDeferredGrading")]
+    partial class ExamClassDeferredGrading
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1078,9 +1081,6 @@ namespace PRN232_G9_AutoGradingTool.Infrastructure.Migrations.PRN232_G9_AutoGrad
                     b.HasIndex("ExamGradingPackId")
                         .HasDatabaseName("ix_exam_submissions_exam_grading_pack_id");
 
-                    b.HasIndex("ExamSessionId")
-                        .HasDatabaseName("IX_Submissions_ExamSessionId");
-
                     b.HasIndex("IsDeleted")
                         .HasDatabaseName("ix_examsubmission_is_deleted");
 
@@ -1225,49 +1225,22 @@ namespace PRN232_G9_AutoGradingTool.Infrastructure.Migrations.PRN232_G9_AutoGrad
                         .HasColumnType("uuid")
                         .HasColumnName("exam_question_id");
 
-                    b.Property<string>("ExpectedBody")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("expected_body");
-
-                    b.Property<int>("ExpectedStatus")
-                        .HasColumnType("integer")
-                        .HasColumnName("expected_status");
-
                     b.Property<bool>("IsDeleted")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
                         .HasDefaultValue(false)
                         .HasColumnName("is_deleted");
 
-                    b.Property<bool>("IsHidden")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_hidden");
-
                     b.Property<decimal>("MaxPoints")
                         .HasPrecision(9, 2)
                         .HasColumnType("numeric(9,2)")
                         .HasColumnName("max_points");
-
-                    b.Property<string>("Method")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("method");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)")
                         .HasColumnName("name");
-
-                    b.Property<int>("OrderIndex")
-                        .HasColumnType("integer")
-                        .HasColumnName("order_index");
-
-                    b.Property<string>("RequestBody")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("request_body");
 
                     b.Property<int>("SortOrder")
                         .HasColumnType("integer")
@@ -1277,10 +1250,6 @@ namespace PRN232_G9_AutoGradingTool.Infrastructure.Migrations.PRN232_G9_AutoGrad
                         .HasColumnType("integer")
                         .HasColumnName("status");
 
-                    b.Property<int>("Type")
-                        .HasColumnType("integer")
-                        .HasColumnName("type");
-
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -1289,20 +1258,11 @@ namespace PRN232_G9_AutoGradingTool.Infrastructure.Migrations.PRN232_G9_AutoGrad
                         .HasColumnType("uuid")
                         .HasColumnName("updated_by");
 
-                    b.Property<string>("UrlTemplate")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("url_template");
-
-                    b.Property<double>("Weight")
-                        .HasColumnType("double precision")
-                        .HasColumnName("weight");
-
                     b.HasKey("Id")
                         .HasName("pk_exam_test_cases");
 
                     b.HasIndex("ExamQuestionId")
-                        .HasDatabaseName("IX_TestCases_ExamQuestionId");
+                        .HasDatabaseName("ix_exam_test_cases_exam_question_id");
 
                     b.HasIndex("IsDeleted")
                         .HasDatabaseName("ix_examtestcase_is_deleted");
@@ -1901,182 +1861,6 @@ namespace PRN232_G9_AutoGradingTool.Infrastructure.Migrations.PRN232_G9_AutoGrad
                     b.ToTable("semesters", (string)null);
                 });
 
-            modelBuilder.Entity("PRN232_G9_AutoGradingTool.Domain.Entities.TestResult", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<DateTime?>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
-
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("uuid")
-                        .HasColumnName("created_by");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("deleted_at");
-
-                    b.Property<Guid?>("DeletedBy")
-                        .HasColumnType("uuid")
-                        .HasColumnName("deleted_by");
-
-                    b.Property<bool>("IsDeleted")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(false)
-                        .HasColumnName("is_deleted");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer")
-                        .HasColumnName("status");
-
-                    b.Property<Guid>("SubmissionId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("submission_id");
-
-                    b.Property<int>("TestStatus")
-                        .HasColumnType("integer")
-                        .HasColumnName("test_status");
-
-                    b.Property<double>("TotalScore")
-                        .HasColumnType("double precision")
-                        .HasColumnName("total_score");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.Property<Guid?>("UpdatedBy")
-                        .HasColumnType("uuid")
-                        .HasColumnName("updated_by");
-
-                    b.HasKey("Id")
-                        .HasName("pk_test_results");
-
-                    b.HasIndex("IsDeleted")
-                        .HasDatabaseName("ix_testresult_is_deleted");
-
-                    b.HasIndex("Status")
-                        .HasDatabaseName("ix_testresult_status");
-
-                    b.HasIndex("SubmissionId")
-                        .IsUnique()
-                        .HasDatabaseName("ix_test_results_submission_id");
-
-                    b.HasIndex("UpdatedAt")
-                        .HasDatabaseName("ix_testresult_updated_at");
-
-                    b.HasIndex("Status", "IsDeleted")
-                        .HasDatabaseName("ix_testresult_status_is_deleted");
-
-                    b.HasIndex("IsDeleted", "Status", "UpdatedAt")
-                        .HasDatabaseName("ix_testresult_is_deleted_status_updated_at");
-
-                    b.ToTable("test_results", (string)null);
-                });
-
-            modelBuilder.Entity("PRN232_G9_AutoGradingTool.Domain.Entities.TestResultDetail", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<DateTime?>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
-
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("uuid")
-                        .HasColumnName("created_by");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("deleted_at");
-
-                    b.Property<Guid?>("DeletedBy")
-                        .HasColumnType("uuid")
-                        .HasColumnName("deleted_by");
-
-                    b.Property<string>("ErrorMessage")
-                        .IsRequired()
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)")
-                        .HasColumnName("error_message");
-
-                    b.Property<bool>("IsDeleted")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(false)
-                        .HasColumnName("is_deleted");
-
-                    b.Property<bool>("Passed")
-                        .HasColumnType("boolean")
-                        .HasColumnName("passed");
-
-                    b.Property<int>("ResponseTime")
-                        .HasColumnType("integer")
-                        .HasColumnName("response_time");
-
-                    b.Property<Guid>("ResultId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("result_id");
-
-                    b.Property<double>("Score")
-                        .HasColumnType("double precision")
-                        .HasColumnName("score");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer")
-                        .HasColumnName("status");
-
-                    b.Property<Guid>("TestCaseId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("test_case_id");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.Property<Guid?>("UpdatedBy")
-                        .HasColumnType("uuid")
-                        .HasColumnName("updated_by");
-
-                    b.HasKey("Id")
-                        .HasName("pk_test_result_details");
-
-                    b.HasIndex("IsDeleted")
-                        .HasDatabaseName("ix_testresultdetail_is_deleted");
-
-                    b.HasIndex("ResultId")
-                        .HasDatabaseName("ix_test_result_details_result_id");
-
-                    b.HasIndex("Status")
-                        .HasDatabaseName("ix_testresultdetail_status");
-
-                    b.HasIndex("TestCaseId")
-                        .HasDatabaseName("ix_test_result_details_test_case_id");
-
-                    b.HasIndex("UpdatedAt")
-                        .HasDatabaseName("ix_testresultdetail_updated_at");
-
-                    b.HasIndex("Status", "IsDeleted")
-                        .HasDatabaseName("ix_testresultdetail_status_is_deleted");
-
-                    b.HasIndex("IsDeleted", "Status", "UpdatedAt")
-                        .HasDatabaseName("ix_testresultdetail_is_deleted_status_updated_at");
-
-                    b.ToTable("test_result_details", (string)null);
-                });
-
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
                 {
                     b.HasOne("PRN232_G9_AutoGradingTool.Domain.Entities.AppRole", null)
@@ -2377,37 +2161,6 @@ namespace PRN232_G9_AutoGradingTool.Infrastructure.Migrations.PRN232_G9_AutoGrad
             modelBuilder.Entity("PRN232_G9_AutoGradingTool.Domain.Entities.ExamClass", b =>
                 {
                     b.Navigation("SessionClasses");
-            modelBuilder.Entity("PRN232_G9_AutoGradingTool.Domain.Entities.TestResult", b =>
-                {
-                    b.HasOne("PRN232_G9_AutoGradingTool.Domain.Entities.ExamSubmission", "Submission")
-                        .WithOne("Result")
-                        .HasForeignKey("PRN232_G9_AutoGradingTool.Domain.Entities.TestResult", "SubmissionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_test_results_exam_submissions_submission_id");
-
-                    b.Navigation("Submission");
-                });
-
-            modelBuilder.Entity("PRN232_G9_AutoGradingTool.Domain.Entities.TestResultDetail", b =>
-                {
-                    b.HasOne("PRN232_G9_AutoGradingTool.Domain.Entities.TestResult", "Result")
-                        .WithMany("Details")
-                        .HasForeignKey("ResultId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_test_result_details_test_results_result_id");
-
-                    b.HasOne("PRN232_G9_AutoGradingTool.Domain.Entities.ExamTestCase", "TestCase")
-                        .WithMany("ResultDetails")
-                        .HasForeignKey("TestCaseId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_test_result_details_exam_test_cases_test_case_id");
-
-                    b.Navigation("Result");
-
-                    b.Navigation("TestCase");
                 });
 
             modelBuilder.Entity("PRN232_G9_AutoGradingTool.Domain.Entities.ExamGradingPack", b =>
@@ -2448,9 +2201,6 @@ namespace PRN232_G9_AutoGradingTool.Infrastructure.Migrations.PRN232_G9_AutoGrad
 
                     b.Navigation("QuestionScores");
 
-                    b.Navigation("Result")
-                        .IsRequired();
-
                     b.Navigation("SubmissionFiles");
 
                     b.Navigation("TestCaseScores");
@@ -2459,8 +2209,6 @@ namespace PRN232_G9_AutoGradingTool.Infrastructure.Migrations.PRN232_G9_AutoGrad
             modelBuilder.Entity("PRN232_G9_AutoGradingTool.Domain.Entities.ExamTestCase", b =>
                 {
                     b.Navigation("GradingDefinitions");
-
-                    b.Navigation("ResultDetails");
 
                     b.Navigation("Scores");
                 });
@@ -2480,11 +2228,6 @@ namespace PRN232_G9_AutoGradingTool.Infrastructure.Migrations.PRN232_G9_AutoGrad
                     b.Navigation("ExamClasses");
 
                     b.Navigation("ExamSessions");
-                });
-
-            modelBuilder.Entity("PRN232_G9_AutoGradingTool.Domain.Entities.TestResult", b =>
-                {
-                    b.Navigation("Details");
                 });
 #pragma warning restore 612, 618
         }

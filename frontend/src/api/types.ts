@@ -5,6 +5,8 @@ export type ApiResult<T> = {
   data?: T;
   errors?: string[] | null;
   errorCode?: string | null;
+  /** Mã HTTP thực tế (0 = lỗi mạng / không có phản hồi) */
+  httpStatus?: number;
 };
 
 export type AuthResponse = {

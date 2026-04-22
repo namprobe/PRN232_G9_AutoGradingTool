@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { listExamSessions, listSubmissions } from "../api/gradingApi";
+import type { ExamSubmissionListItem } from "../api/gradingTypes";
 import { inferSessionStatus, workflowToQPair } from "../lib/gradingUi";
 
 export function DashboardPage() {
@@ -11,19 +12,38 @@ export function DashboardPage() {
   const [graded, setGraded] = useState(0);
   const [inQueue, setInQueue] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadErr, setLoadErr] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
+      setLoadErr(null);
       const es = await listExamSessions(token, null);
-      const firstSessionId = es.isSuccess && es.data?.length ? es.data[0]!.id : "";
-      const subs = firstSessionId ? await listSubmissions(token, firstSessionId) : { isSuccess: false as const, data: undefined };
+      if (cancelled) return;
+      if (!es.isSuccess || !es.data) {
+        setLoadErr(es.message ?? "Không tải được danh sách ca thi.");
+        setActiveSessions(0);
+        setTotalSubs(0);
+        setGraded(0);
+        setInQueue(0);
+        setLoading(false);
+        return;
+      }
+      const firstSessionId = es.data.length ? es.data[0]!.id : "";
+      const subs = firstSessionId
+        ? await listSubmissions(token, firstSessionId)
+        : { isSuccess: true as const, data: [] as ExamSubmissionListItem[] };
       if (cancelled) return;
       if (es.isSuccess && es.data) {
         setActiveSessions(es.data.filter((x) => inferSessionStatus(x.startsAtUtc, x.endsAtUtc) === "active").length);
       }
-      if (subs.isSuccess && subs.data) {
+      if (!subs.isSuccess || !subs.data) {
+        setLoadErr(subs.message ?? "Không tải được bài nộp mẫu.");
+        setTotalSubs(0);
+        setGraded(0);
+        setInQueue(0);
+      } else {
         setTotalSubs(subs.data.length);
         setGraded(subs.data.filter((s) => s.status === "Completed").length);
         setInQueue(
@@ -42,6 +62,11 @@ export function DashboardPage() {
 
   return (
     <div className="ag-stack ag-stack--lg">
+      {loadErr ? (
+        <div className="ag-alert ag-alert--err" role="alert">
+          {loadErr}
+        </div>
+      ) : null}
       <div className="ag-stat-grid">
         <div className="ag-stat">
           <div className="ag-stat__label">Ca thi đang mở (ước lượng)</div>
@@ -56,12 +81,12 @@ export function DashboardPage() {
         <div className="ag-stat">
           <div className="ag-stat__label">Đã chấm xong</div>
           <div className="ag-stat__value">{loading ? "…" : graded}</div>
-          <div className="ag-stat__hint">Pipeline Completed</div>
+          <div className="ag-stat__hint">Đã chấm xong</div>
         </div>
         <div className="ag-stat">
           <div className="ag-stat__label">Chờ / đang chấm</div>
           <div className="ag-stat__value">{loading ? "…" : inQueue}</div>
-          <div className="ag-stat__hint">Theo cột Q1–Q2</div>
+          <div className="ag-stat__hint">Theo tiến độ từng câu</div>
         </div>
       </div>
 
@@ -87,15 +112,15 @@ export function DashboardPage() {
                 <span className="ag-tile__sub">Đối chiếu SYSTEM_FLOWS</span>
               </span>
             </Link>
-            <Link className="ag-tile" to="/submissions/upload">
+            <Link className="ag-tile" to="/exam-sessions">
               <span className="ag-tile__icon" aria-hidden>
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
                   <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" />
                 </svg>
               </span>
               <span className="ag-tile__text">
-                <span className="ag-tile__title">Tải zip Q1 & Q2</span>
-                <span className="ag-tile__sub">POST /api/cms/grading/submissions</span>
+                <span className="ag-tile__title">Nộp zip (chọn ca)</span>
+                <span className="ag-tile__sub">Chọn ca rồi nộp đúng phiên thi</span>
               </span>
             </Link>
             <Link className="ag-tile" to="/semesters">
@@ -107,7 +132,7 @@ export function DashboardPage() {
               </span>
               <span className="ag-tile__text">
                 <span className="ag-tile__title">Học kỳ</span>
-                <span className="ag-tile__sub">GET semesters</span>
+                <span className="ag-tile__sub">Tạo và chỉnh kỳ học</span>
               </span>
             </Link>
             <Link className="ag-tile" to="/exam-sessions">
@@ -119,7 +144,7 @@ export function DashboardPage() {
               </span>
               <span className="ag-tile__text">
                 <span className="ag-tile__title">Quản lý ca thi</span>
-                <span className="ag-tile__sub">GET exam-sessions</span>
+                <span className="ag-tile__sub">Lịch thi và cấu trúc đề</span>
               </span>
             </Link>
             <Link className="ag-tile" to="/submissions">
@@ -131,7 +156,7 @@ export function DashboardPage() {
               </span>
               <span className="ag-tile__text">
                 <span className="ag-tile__title">Theo dõi bài nộp</span>
-                <span className="ag-tile__sub">GET submissions</span>
+                <span className="ag-tile__sub">Xem bài đã nộp và điểm</span>
               </span>
             </Link>
           </div>
@@ -140,28 +165,28 @@ export function DashboardPage() {
         <section className="ag-card ag-animate-in ag-animate-in--delay">
           <div className="ag-card__head">
             <h2 className="ag-card__title">Hoạt động gần đây</h2>
-            <p className="ag-card__desc">Tóm tắt từ API / mock</p>
+            <p className="ag-card__desc">Tóm tắt nhanh (dữ liệu thật hoặc chế độ thử)</p>
           </div>
           <ul className="ag-timeline">
             <li className="ag-timeline__item">
               <span className="ag-timeline__dot ag-timeline__dot--ok" />
               <div>
                 <strong>Chấm xong</strong> · HE186501 · PRN232-DEMO-PE
-                <div className="ag-timeline__meta">GET submissions + seed</div>
+                <div className="ag-timeline__meta">Đã có trong danh sách bài nộp</div>
               </div>
             </li>
             <li className="ag-timeline__item">
               <span className="ag-timeline__dot ag-timeline__dot--info" />
               <div>
                 <strong>Đang chấm</strong> · HE186502
-                <div className="ag-timeline__meta">Pipeline Running (mock)</div>
+                <div className="ag-timeline__meta">Đang trong hàng đợi chấm (thử nghiệm)</div>
               </div>
             </li>
             <li className="ag-timeline__item">
               <span className="ag-timeline__dot ag-timeline__dot--muted" />
               <div>
-                <strong>Swagger</strong> · nhóm CMS_Grading
-                <div className="ag-timeline__meta">http://localhost:5000/swagger</div>
+                <strong>Tài liệu giao tiếp máy chủ</strong>
+                <div className="ag-timeline__meta">Xem trên cổng dành cho lập trình viên khi cần</div>
               </div>
             </li>
           </ul>

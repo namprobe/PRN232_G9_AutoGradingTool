@@ -678,6 +678,45 @@ a {
   color: #a5b4fc;
 }
 
+.ag-breadcrumb {
+  font-size: 0.82rem;
+  color: var(--ag-muted);
+  margin-bottom: 0.75rem;
+  line-height: 1.5;
+}
+
+.ag-breadcrumb__seg {
+  display: inline;
+}
+
+.ag-breadcrumb__sep {
+  margin: 0 0.35rem;
+  opacity: 0.55;
+}
+
+.ag-breadcrumb__link {
+  color: #a5b4fc;
+  font-weight: 500;
+}
+
+.ag-breadcrumb__link:hover {
+  text-decoration: underline;
+}
+
+.ag-breadcrumb__current {
+  color: var(--ag-text);
+  font-weight: 600;
+}
+
+.ag-sidebar__section-label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ag-muted);
+  padding: 0.75rem 0.85rem 0.35rem;
+  margin-top: 0.25rem;
+}
+
 .ag-pillboard {
   display: flex;
   gap: 0.75rem;

@@ -41,3 +41,29 @@ export function questionLabelsForReplace(detail: ExamSubmissionDetail): string[]
 export function listItemMaxScore(): number {
   return 10;
 }
+
+/** Nhãn tiếng Việt cho trạng thái pipeline bài nộp (giá trị từ máy chủ). */
+export function workflowStatusLabel(status: string): string {
+  const s = (status || "").trim();
+  const map: Record<string, string> = {
+    Pending: "Chờ xử lý",
+    Queued: "Đang xếp hàng",
+    Running: "Đang chấm",
+    Completed: "Đã chấm xong",
+    Failed: "Chấm không thành công",
+  };
+  return map[s] ?? (s || "Chưa rõ");
+}
+
+/** Nhãn trạng thái tác vụ chấm (sau khi yêu cầu chấm lại). */
+export function jobStatusLabel(status: string): string {
+  const s = (status || "").trim();
+  const map: Record<string, string> = {
+    Completed: "Hoàn tất",
+    Running: "Đang chạy",
+    Failed: "Thất bại",
+    Queued: "Đang chờ",
+    Pending: "Chờ xử lý",
+  };
+  return map[s] ?? (s || "Chưa rõ");
+}

@@ -62,6 +62,7 @@ let mockExamSessionRows: ExamSessionListItem[] = [
     startsAtUtc: scheduledAt,
     examDurationMinutes: 90,
     endsAtUtc: endsAt,
+    deferredClassGrading: false,
     topicCount: 1,
     questionCount: 2,
     submissionCount: 2,
@@ -100,6 +101,7 @@ const seedSessionDetail: ExamSessionDetail = {
   startsAtUtc: scheduledAt,
   examDurationMinutes: 90,
   endsAtUtc: endsAt,
+  deferredClassGrading: false,
   topics: [
     {
       id: topicId,
@@ -138,7 +140,7 @@ const mockPackRowsBySession = new Map<string, ExamGradingPackListItem[]>();
 const mockPackAssetsByPack = new Map<string, ExamPackAssetListItem[]>();
 
 mockPackRowsBySession.set(DEMO_EXAM_SESSION_ID, [
-  { id: "b1000000-0000-4000-8000-00000000pack1", version: 1, label: "Demo pack (mock)", isActive: true, assetCount: 0 },
+  { id: "b1000000-0000-4000-8000-00000000pack1", version: 1, label: "Gói chấm minh họa", isActive: true, assetCount: 0 },
 ]);
 
 /** Ca thi tạo trong mock (ngoài DEMO) — cây topic / câu / testcase. */
@@ -189,6 +191,7 @@ export function mockGetExamSession(id: string): ApiResult<ExamSessionDetail> {
     startsAtUtc: row.startsAtUtc,
     examDurationMinutes: row.examDurationMinutes,
     endsAtUtc: row.endsAtUtc,
+    deferredClassGrading: row.deferredClassGrading,
     topics: deepClone(topics),
   });
 }
@@ -200,7 +203,7 @@ export function mockCreateSemesterRow(body: {
   endDateUtc: string | null;
 }): ApiResult<SemesterListItem> {
   if (mockSemesterRows.some((x) => x.code.toLowerCase() === body.code.trim().toLowerCase())) {
-    return fail("Mã học kỳ đã tồn tại (mock).");
+    return fail("Mã học kỳ đã tồn tại (chế độ thử).");
   }
   const row: SemesterListItem = {
     id: crypto.randomUUID(),
@@ -210,7 +213,7 @@ export function mockCreateSemesterRow(body: {
     endDateUtc: body.endDateUtc,
   };
   mockSemesterRows = [...mockSemesterRows, row];
-  return ok(row, "Đã tạo (mock).");
+  return ok(row, "Đã tạo (chế độ thử).");
 }
 
 export function mockUpdateSemesterRow(
@@ -218,9 +221,9 @@ export function mockUpdateSemesterRow(
   body: { code: string; name: string; startDateUtc: string | null; endDateUtc: string | null }
 ): ApiResult<SemesterListItem> {
   const idx = mockSemesterRows.findIndex((x) => x.id === id);
-  if (idx < 0) return fail("Không tìm thấy (mock).");
+  if (idx < 0) return fail("Không tìm thấy (chế độ thử).");
   if (mockSemesterRows.some((x) => x.id !== id && x.code.toLowerCase() === body.code.trim().toLowerCase())) {
-    return fail("Trùng mã (mock).");
+    return fail("Trùng mã (chế độ thử).");
   }
   const row: SemesterListItem = {
     id,
@@ -232,15 +235,15 @@ export function mockUpdateSemesterRow(
   mockSemesterRows = mockSemesterRows.map((x, i) => (i === idx ? row : x));
   const sc = row.code;
   mockExamSessionRows = mockExamSessionRows.map((s) => (s.semesterId === id ? { ...s, semesterCode: sc } : s));
-  return ok(row, "Đã cập nhật (mock).");
+  return ok(row, "Đã cập nhật (chế độ thử).");
 }
 
 export function mockDeleteSemesterRow(id: string): ApiResult<boolean> {
-  if (mockExamSessionRows.some((x) => x.semesterId === id)) return fail("Còn ca thi (mock).");
+  if (mockExamSessionRows.some((x) => x.semesterId === id)) return fail("Còn ca thi (chế độ thử).");
   const next = mockSemesterRows.filter((x) => x.id !== id);
-  if (next.length === mockSemesterRows.length) return fail("Không tìm thấy (mock).");
+  if (next.length === mockSemesterRows.length) return fail("Không tìm thấy (chế độ thử).");
   mockSemesterRows = next;
-  return ok(true, "Đã xóa (mock).");
+  return ok(true, "Đã xóa (chế độ thử).");
 }
 
 export function mockCreateExamSessionRow(body: {
@@ -250,11 +253,12 @@ export function mockCreateExamSessionRow(body: {
   startsAtUtc: string;
   examDurationMinutes: number;
   endsAtUtc: string;
+  deferredClassGrading?: boolean;
 }): ApiResult<ExamSessionListItem> {
   const sem = mockSemesterRows.find((x) => x.id === body.semesterId);
-  if (!sem) return fail("Không có học kỳ (mock).");
+  if (!sem) return fail("Không có học kỳ (chế độ thử).");
   if (mockExamSessionRows.some((x) => x.semesterId === body.semesterId && x.code === body.code.trim())) {
-    return fail("Trùng mã ca (mock).");
+    return fail("Trùng mã ca (chế độ thử).");
   }
   const row: ExamSessionListItem = {
     id: crypto.randomUUID(),
@@ -265,13 +269,14 @@ export function mockCreateExamSessionRow(body: {
     startsAtUtc: body.startsAtUtc,
     examDurationMinutes: body.examDurationMinutes,
     endsAtUtc: body.endsAtUtc,
+    deferredClassGrading: body.deferredClassGrading ?? false,
     topicCount: 0,
     questionCount: 0,
     submissionCount: 0,
   };
   mockExamSessionRows = [...mockExamSessionRows, row];
   mockPackRowsBySession.set(row.id, []);
-  return ok(row, "Đã tạo ca (mock).");
+  return ok(row, "Đã tạo ca (chế độ thử).");
 }
 
 export function mockCreateTopicForSession(
@@ -281,7 +286,7 @@ export function mockCreateTopicForSession(
   const key = sessionId.toLowerCase();
   if (key !== DEMO_EXAM_SESSION_ID.toLowerCase()) {
     const row = mockExamSessionRows.find((x) => x.id.toLowerCase() === key);
-    if (!row) return fail("Không tìm thấy ca thi (mock).");
+    if (!row) return fail("Không tìm thấy ca thi (chế độ thử).");
     const t: ExamTopicDetail = {
       id: crypto.randomUUID(),
       title: body.title.trim(),
@@ -291,7 +296,7 @@ export function mockCreateTopicForSession(
     const list = mockNonDemoSessionTopics.get(key) ?? [];
     mockNonDemoSessionTopics.set(key, [...list, t]);
     syncNonDemoSessionCountsInRow(key);
-    return ok(t, "Đã tạo topic (mock).");
+    return ok(t, "Đã tạo chủ đề (chế độ thử).");
   }
   const t: ExamTopicDetail = {
     id: crypto.randomUUID(),
@@ -304,7 +309,7 @@ export function mockCreateTopicForSession(
     topics: [...mockSessionDetailMutable.topics, t],
   };
   syncDemoSessionCountsFromTree(mockSessionDetailMutable);
-  return ok(t, "Đã tạo topic (mock).");
+  return ok(t, "Đã tạo chủ đề (chế độ thử).");
 }
 
 export function mockCreateQuestionForTopic(
@@ -314,7 +319,7 @@ export function mockCreateQuestionForTopic(
   const topic = mockSessionDetailMutable.topics.find((x) => x.id === topicId);
   if (topic) {
     if (topic.questions.some((q) => q.label.toLowerCase() === body.label.trim().toLowerCase())) {
-      return fail("Trùng label (mock).");
+      return fail("Trùng mã câu trên đề (chế độ thử).");
     }
     const q: ExamQuestionDetail = {
       id: crypto.randomUUID(),
@@ -330,13 +335,13 @@ export function mockCreateQuestionForTopic(
       ),
     };
     syncDemoSessionCountsFromTree(mockSessionDetailMutable);
-    return ok(q, "Đã tạo câu (mock).");
+    return ok(q, "Đã tạo câu (chế độ thử).");
   }
 
   const hit = findNonDemoTopicByTopicId(topicId);
-  if (!hit) return fail("Không tìm thấy topic (mock).");
+  if (!hit) return fail("Không tìm thấy chủ đề (chế độ thử).");
   if (hit.topic.questions.some((q) => q.label.toLowerCase() === body.label.trim().toLowerCase())) {
-    return fail("Trùng label (mock).");
+    return fail("Trùng mã câu trên đề (chế độ thử).");
   }
   const q: ExamQuestionDetail = {
     id: crypto.randomUUID(),
@@ -352,7 +357,7 @@ export function mockCreateQuestionForTopic(
     topics.map((t) => (t.id !== topicId ? t : { ...t, questions: [...t.questions, q] }))
   );
   syncNonDemoSessionCountsInRow(sessionKey);
-  return ok(q, "Đã tạo câu (mock).");
+  return ok(q, "Đã tạo câu (chế độ thử).");
 }
 
 export function mockCreateTestCaseForQuestion(
@@ -383,11 +388,11 @@ export function mockCreateTestCaseForQuestion(
       })),
     };
     syncDemoSessionCountsFromTree(mockSessionDetailMutable);
-    return ok(tc, "Đã tạo testcase (mock).");
+    return ok(tc, "Đã tạo bài kiểm tra (chế độ thử).");
   }
 
   const hit = findNonDemoQuestionLocation(questionId);
-  if (!hit) return fail("Không tìm thấy câu (mock).");
+  if (!hit) return fail("Không tìm thấy câu (chế độ thử).");
   const tc: ExamTestCaseDetail = {
     id: crypto.randomUUID(),
     name: body.name.trim(),
@@ -409,7 +414,7 @@ export function mockCreateTestCaseForQuestion(
           }
     )
   );
-  return ok(tc, "Đã tạo testcase (mock).");
+  return ok(tc, "Đã tạo bài kiểm tra (chế độ thử).");
 }
 
 export function mockListGradingPacks(sessionId: string): ApiResult<ExamGradingPackListItem[]> {
@@ -423,7 +428,7 @@ export function mockCreateGradingPack(
   const list = [...(mockPackRowsBySession.get(sessionId) ?? [])];
   const version =
     body.version && body.version > 0 ? body.version : (list.reduce((m, x) => Math.max(m, x.version), 0) || 0) + 1;
-  if (list.some((x) => x.version === version)) return fail("Trùng version (mock).");
+  if (list.some((x) => x.version === version)) return fail("Trùng số phiên bản (chế độ thử).");
   const row: ExamGradingPackListItem = {
     id: crypto.randomUUID(),
     version,
@@ -434,7 +439,7 @@ export function mockCreateGradingPack(
   const next = body.isActive ? list.map((x) => ({ ...x, isActive: false })) : list;
   mockPackRowsBySession.set(sessionId, [...next, row]);
   mockPackAssetsByPack.set(row.id, []);
-  return ok(row, "Đã tạo pack (mock).");
+  return ok(row, "Đã tạo gói chấm (chế độ thử).");
 }
 
 export function mockCreatePackAsset(packId: string, kind: number): ApiResult<ExamPackAssetListItem> {
@@ -445,7 +450,7 @@ export function mockCreatePackAsset(packId: string, kind: number): ApiResult<Exa
       break;
     }
   }
-  if (!sessionId) return fail("Không tìm thấy pack (mock).");
+  if (!sessionId) return fail("Không tìm thấy gói chấm (chế độ thử).");
   const assetId = crypto.randomUUID();
   const asset: ExamPackAssetListItem = {
     id: assetId,
@@ -460,13 +465,15 @@ export function mockCreatePackAsset(packId: string, kind: number): ApiResult<Exa
     p.id === packId ? { ...p, assetCount: assets.length } : p
   );
   mockPackRowsBySession.set(sessionId, packs);
-  return ok(asset, "Đã upload asset (mock).");
+  return ok(asset, "Đã tải tệp lên (chế độ thử).");
 }
 
 const sampleDetail: ExamSubmissionDetail = {
   id: DEMO_SAMPLE_SUBMISSION_ID,
   examSessionId: DEMO_EXAM_SESSION_ID,
   examSessionCode: "PRN232-DEMO-PE",
+  examSessionClassId: null,
+  classCode: null,
   studentCode: "HE186501",
   studentName: "Bài mẫu (seed)",
   status: "Completed",
@@ -524,8 +531,10 @@ const sub2Detail: ExamSubmissionDetail = {
   id: MOCK_SUB2_ID,
   examSessionId: DEMO_EXAM_SESSION_ID,
   examSessionCode: "PRN232-DEMO-PE",
+  examSessionClassId: null,
+  classCode: null,
   studentCode: "HE186502",
-  studentName: "Trần Thị B (mock)",
+  studentName: "Trần Thị B",
   status: "Running",
   submittedAtUtc: "2026-04-15T07:55:03.000Z",
   totalScore: null,
@@ -565,6 +574,8 @@ function initMockSubmissionStore() {
     {
       id: DEMO_SAMPLE_SUBMISSION_ID,
       examSessionId: DEMO_EXAM_SESSION_ID,
+      examSessionClassId: null,
+      classCode: null,
       studentCode: "HE186501",
       studentName: "Bài mẫu (seed)",
       status: "Completed",
@@ -574,8 +585,10 @@ function initMockSubmissionStore() {
     {
       id: MOCK_SUB2_ID,
       examSessionId: DEMO_EXAM_SESSION_ID,
+      examSessionClassId: null,
+      classCode: null,
       studentCode: "HE186502",
-      studentName: "Trần Thị B (mock)",
+      studentName: "Trần Thị B",
       status: "Running",
       submittedAtUtc: "2026-04-15T07:55:03.000Z",
       totalScore: null,
@@ -615,6 +628,8 @@ export function mockCreateSubmission(
     id,
     examSessionId: row.id,
     examSessionCode: row.code,
+    examSessionClassId: null,
+    classCode: null,
     studentCode: code,
     studentName: name,
     status: "Completed",
@@ -638,6 +653,8 @@ export function mockCreateSubmission(
   const listItem: ExamSubmissionListItem = {
     id,
     examSessionId: row.id,
+    examSessionClassId: null,
+    classCode: null,
     studentCode: code,
     studentName: name,
     status: detail.status,
@@ -651,12 +668,12 @@ export function mockCreateSubmission(
   mockExamSessionRows = mockExamSessionRows.map((s) =>
     s.id.toLowerCase() === key ? { ...s, submissionCount: next.length } : s
   );
-  return ok(id, "Đã nhận zip và chạy chấm stub (mock).");
+  return ok(id, "Đã nhận tệp và mô phỏng bước chấm (chế độ thử).");
 }
 
 export function mockReplaceSubmissionFile(submissionId: string, questionLabel: string): ApiResult<boolean> {
   if (!mockSubmissionDetailsById.has(submissionId.toLowerCase())) return fail("Không tìm thấy bài nộp.");
-  return ok(true, `Đã thay thế file ${questionLabel} (mock). Gọi POST /regrade để chấm lại.`);
+  return ok(true, `Đã thay tệp cho ${questionLabel}. Hãy bấm chấm lại để cập nhật điểm.`);
 }
 
 export function mockTriggerRegrade(submissionId: string): ApiResult<TriggerRegradeResponse> {
@@ -666,9 +683,9 @@ export function mockTriggerRegrade(submissionId: string): ApiResult<TriggerRegra
       gradingJobId: crypto.randomUUID(),
       trigger: "ManualRegrade",
       jobStatus: "Completed",
-      message: "Chấm lại thành công (stub mock).",
+      message: "Chấm lại thành công (chế độ thử).",
     },
-    "Chấm lại thành công (stub mock)."
+    "Chấm lại thành công (chế độ thử)."
   );
 }
 

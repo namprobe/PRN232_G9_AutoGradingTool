@@ -17,6 +17,7 @@ export type ExamSessionListItem = {
   startsAtUtc: string;
   examDurationMinutes: number;
   endsAtUtc: string;
+  deferredClassGrading: boolean;
   topicCount: number;
   questionCount: number;
   submissionCount: number;
@@ -53,12 +54,15 @@ export type ExamSessionDetail = {
   startsAtUtc: string;
   examDurationMinutes: number;
   endsAtUtc: string;
+  deferredClassGrading: boolean;
   topics: ExamTopicDetail[];
 };
 
 export type ExamSubmissionListItem = {
   id: string;
   examSessionId: string;
+  examSessionClassId: string | null;
+  classCode: string | null;
   studentCode: string;
   studentName: string | null;
   status: string;
@@ -94,6 +98,8 @@ export type ExamSubmissionDetail = {
   id: string;
   examSessionId: string;
   examSessionCode: string;
+  examSessionClassId: string | null;
+  classCode: string | null;
   studentCode: string;
   studentName: string | null;
   status: string;
@@ -129,6 +135,7 @@ export type CreateExamSessionBody = {
   startsAtUtc: string;
   examDurationMinutes: number;
   endsAtUtc: string;
+  deferredClassGrading?: boolean;
 };
 
 export type UpdateExamSessionBody = CreateExamSessionBody;

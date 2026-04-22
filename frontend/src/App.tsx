@@ -26,12 +26,14 @@ function AppRoutes() {
       <Route element={<PrivateLayout />}>
         <Route index element={<DashboardPage />} />
         <Route path="semesters" element={<SemestersPage />} />
+        <Route path="exam-sessions/:sessionId/upload" element={<UploadSubmissionsPage />} />
+        <Route path="exam-sessions/:sessionId/submissions" element={<SubmissionsListPage />} />
         <Route path="exam-sessions/:sessionId" element={<ExamSessionDetailPage />} />
         <Route path="exam-sessions" element={<ExamSessionsPage />} />
         <Route path="grading-pack" element={<GradingPackInfoPage />} />
         <Route path="system-flows" element={<SystemFlowsPage />} />
+        <Route path="submissions/upload" element={<Navigate to="/exam-sessions" replace />} />
         <Route path="submissions" element={<SubmissionsListPage />} />
-        <Route path="submissions/upload" element={<UploadSubmissionsPage />} />
         <Route path="submissions/:submissionId" element={<SubmissionDetailPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

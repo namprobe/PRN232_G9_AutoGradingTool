@@ -6,6 +6,7 @@ import { cmsCreateExamSession } from "../api/gradingCmsApi";
 import type { ExamSessionListItem, SemesterListItem } from "../api/gradingTypes";
 import { SessionStatusBadge } from "../components/StatusBadge";
 import { inferSessionStatus } from "../lib/gradingUi";
+import { examSessionSubmissionsPath } from "../lib/workflowRoutes";
 
 export function ExamSessionsPage() {
   const { token } = useAuth();
@@ -23,17 +24,22 @@ export function ExamSessionsPage() {
     endsLocal: "",
     duration: 90,
   });
+  const [semestersErr, setSemestersErr] = useState<string | null>(null);
 
   const semesterFilter = useMemo(() => (semesterId || null) as string | null, [semesterId]);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      setSemestersErr(null);
       const sr = await listSemesters(token);
       if (cancelled) return;
       if (sr.isSuccess && sr.data) {
         setSemesters(sr.data);
         setCreateSemId((prev) => prev || sr.data![0]?.id || "");
+      } else {
+        setSemesters([]);
+        setSemestersErr(sr.message ?? "Không tải được danh sách học kỳ.");
       }
     })();
     return () => {
@@ -87,9 +93,14 @@ export function ExamSessionsPage() {
 
   return (
     <div className="ag-stack ag-stack--lg">
+      {semestersErr ? (
+        <div className="ag-alert ag-alert--err" role="alert">
+          {semestersErr}
+        </div>
+      ) : null}
       <div className="ag-toolbar">
         <div>
-          <p className="ag-toolbar__lead">Học kỳ → ca thi (GET / POST exam-sessions)</p>
+          <p className="ag-toolbar__lead">Từ học kỳ đến danh sách ca thi</p>
           <p className="ag-table__muted" style={{ marginTop: 6 }}>
             Tạo ca mới bên dưới; cấu trúc đề (topic / question / testcase) trong trang chi tiết ca.
           </p>
@@ -99,7 +110,7 @@ export function ExamSessionsPage() {
             Học kỳ
           </Link>
           <Link to="/grading-pack" className="ag-btn ag-btn--secondary">
-            Pack (tài liệu)
+            Gói chấm (hướng dẫn)
           </Link>
         </div>
       </div>
@@ -195,7 +206,7 @@ export function ExamSessionsPage() {
             </div>
           </div>
           <button type="submit" className="ag-btn ag-btn--primary">
-            POST tạo ca
+            Tạo ca thi
           </button>
         </form>
       </section>
@@ -262,7 +273,7 @@ export function ExamSessionsPage() {
                 rows.map((row) => (
                   <tr key={row.id}>
                     <td>
-                      <code className="ag-code">{row.code}</code>
+                      <span className="ag-table__strong">{row.code}</span>
                     </td>
                     <td>
                       <span className="ag-table__strong">{row.title}</span>
@@ -280,7 +291,7 @@ export function ExamSessionsPage() {
                     <td>
                       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
                         <Link
-                          to={`/submissions?examSessionId=${encodeURIComponent(row.id)}`}
+                          to={examSessionSubmissionsPath(row.id)}
                           className="ag-btn ag-btn--ghost"
                           style={{ whiteSpace: "nowrap" }}
                         >

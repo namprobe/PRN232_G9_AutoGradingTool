@@ -88,6 +88,9 @@ public class ExamGradingAdminService : IExamGradingAdminService
         if (await _db.ExamSessions.AnyAsync(x => x.SemesterId == id, cancellationToken))
             return Result<bool>.Failure("Không xóa được — còn ca thi thuộc học kỳ.", ErrorCodeEnum.BusinessRuleViolation);
 
+        if (await _db.ExamClasses.AnyAsync(x => x.SemesterId == id, cancellationToken))
+            return Result<bool>.Failure("Không xóa được — còn lớp học thuộc học kỳ.", ErrorCodeEnum.BusinessRuleViolation);
+
         entity.IsDeleted = true;
         entity.DeletedAt = DateTime.UtcNow;
         entity.UpdatedAt = DateTime.UtcNow;
@@ -120,6 +123,7 @@ public class ExamGradingAdminService : IExamGradingAdminService
             StartsAtUtc = req.StartsAtUtc,
             ExamDurationMinutes = req.ExamDurationMinutes,
             EndsAtUtc = req.EndsAtUtc,
+            DeferredClassGrading = req.DeferredClassGrading,
             CreatedAt = DateTime.UtcNow,
             Status = EntityStatusEnum.Active
         };
@@ -156,6 +160,7 @@ public class ExamGradingAdminService : IExamGradingAdminService
         entity.StartsAtUtc = req.StartsAtUtc;
         entity.ExamDurationMinutes = req.ExamDurationMinutes;
         entity.EndsAtUtc = req.EndsAtUtc;
+        entity.DeferredClassGrading = req.DeferredClassGrading;
         entity.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync(cancellationToken);
 
@@ -625,6 +630,220 @@ public class ExamGradingAdminService : IExamGradingAdminService
         return Result<bool>.Success(true, "Đã xóa asset.");
     }
 
+    public async Task<Result<List<ExamClassListItemDto>>> ListExamClassesAsync(Guid semesterId, CancellationToken cancellationToken = default)
+    {
+        if (!await _db.Semesters.AnyAsync(x => x.Id == semesterId, cancellationToken))
+            return Result<List<ExamClassListItemDto>>.Failure("Không tìm thấy học kỳ.", ErrorCodeEnum.NotFound);
+
+        var rows = await _db.ExamClasses.AsNoTracking()
+            .Where(x => x.SemesterId == semesterId)
+            .OrderBy(x => x.Code)
+            .Select(x => new ExamClassListItemDto(x.Id, x.SemesterId, x.Code, x.Name, x.MaxStudents))
+            .ToListAsync(cancellationToken);
+        return Result<List<ExamClassListItemDto>>.Success(rows, "OK");
+    }
+
+    public async Task<Result<ExamClassListItemDto>> CreateExamClassAsync(Guid semesterId, CreateExamClassRequest req, CancellationToken cancellationToken = default)
+    {
+        if (!await _db.Semesters.AnyAsync(x => x.Id == semesterId, cancellationToken))
+            return Result<ExamClassListItemDto>.Failure("Không tìm thấy học kỳ.", ErrorCodeEnum.NotFound);
+
+        var code = req.Code.Trim();
+        var name = req.Name.Trim();
+        if (string.IsNullOrEmpty(code) || string.IsNullOrEmpty(name))
+            return Result<ExamClassListItemDto>.Failure("Code và Name bắt buộc.", ErrorCodeEnum.ValidationFailed);
+
+        var max = req.MaxStudents <= 0 ? 35 : req.MaxStudents;
+        if (max > 200)
+            return Result<ExamClassListItemDto>.Failure("MaxStudents quá lớn (tối đa 200).", ErrorCodeEnum.ValidationFailed);
+
+        if (await _db.ExamClasses.AnyAsync(x => x.SemesterId == semesterId && x.Code == code, cancellationToken))
+            return Result<ExamClassListItemDto>.Failure("Mã lớp đã tồn tại trong học kỳ.", ErrorCodeEnum.DuplicateEntry);
+
+        var entity = new ExamClass
+        {
+            Id = Guid.NewGuid(),
+            SemesterId = semesterId,
+            Code = code,
+            Name = name,
+            MaxStudents = max,
+            CreatedAt = DateTime.UtcNow,
+            Status = EntityStatusEnum.Active
+        };
+        _db.ExamClasses.Add(entity);
+        await _db.SaveChangesAsync(cancellationToken);
+        return Result<ExamClassListItemDto>.Success(
+            new ExamClassListItemDto(entity.Id, entity.SemesterId, entity.Code, entity.Name, entity.MaxStudents),
+            "Đã tạo lớp.");
+    }
+
+    public async Task<Result<ExamClassListItemDto>> UpdateExamClassAsync(Guid id, UpdateExamClassRequest req, CancellationToken cancellationToken = default)
+    {
+        var entity = await _db.ExamClasses.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (entity == null)
+            return Result<ExamClassListItemDto>.Failure("Không tìm thấy lớp.", ErrorCodeEnum.NotFound);
+
+        var code = req.Code.Trim();
+        var name = req.Name.Trim();
+        if (string.IsNullOrEmpty(code) || string.IsNullOrEmpty(name))
+            return Result<ExamClassListItemDto>.Failure("Code và Name bắt buộc.", ErrorCodeEnum.ValidationFailed);
+
+        if (req.MaxStudents <= 0)
+            return Result<ExamClassListItemDto>.Failure("MaxStudents phải > 0.", ErrorCodeEnum.ValidationFailed);
+        if (req.MaxStudents > 200)
+            return Result<ExamClassListItemDto>.Failure("MaxStudents quá lớn (tối đa 200).", ErrorCodeEnum.ValidationFailed);
+
+        if (await _db.ExamClasses.AnyAsync(x => x.SemesterId == entity.SemesterId && x.Code == code && x.Id != id, cancellationToken))
+            return Result<ExamClassListItemDto>.Failure("Mã lớp đã được dùng.", ErrorCodeEnum.DuplicateEntry);
+
+        var usedExpected = await _db.ExamSessionClasses
+            .Where(x => x.ExamClassId == id && x.ExpectedStudentCount > req.MaxStudents)
+            .AnyAsync(cancellationToken);
+        if (usedExpected)
+            return Result<ExamClassListItemDto>.Failure(
+                "Không giảm MaxStudents xuống thấp hơn ExpectedStudentCount của một ca đã gắn lớp.",
+                ErrorCodeEnum.BusinessRuleViolation);
+
+        entity.Code = code;
+        entity.Name = name;
+        entity.MaxStudents = req.MaxStudents;
+        entity.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync(cancellationToken);
+        return Result<ExamClassListItemDto>.Success(
+            new ExamClassListItemDto(entity.Id, entity.SemesterId, entity.Code, entity.Name, entity.MaxStudents),
+            "Đã cập nhật lớp.");
+    }
+
+    public async Task<Result<bool>> DeleteExamClassAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var entity = await _db.ExamClasses.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (entity == null)
+            return Result<bool>.Failure("Không tìm thấy lớp.", ErrorCodeEnum.NotFound);
+
+        if (await _db.ExamSessionClasses.AnyAsync(x => x.ExamClassId == id, cancellationToken))
+            return Result<bool>.Failure("Không xóa được — lớp đã gắn vào ca thi.", ErrorCodeEnum.BusinessRuleViolation);
+
+        entity.IsDeleted = true;
+        entity.DeletedAt = DateTime.UtcNow;
+        entity.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync(cancellationToken);
+        return Result<bool>.Success(true, "Đã xóa lớp.");
+    }
+
+    public async Task<Result<List<ExamSessionClassListItemDto>>> ListExamSessionClassesAsync(Guid examSessionId, CancellationToken cancellationToken = default)
+    {
+        if (!await _db.ExamSessions.AnyAsync(x => x.Id == examSessionId, cancellationToken))
+            return Result<List<ExamSessionClassListItemDto>>.Failure("Không tìm thấy ca thi.", ErrorCodeEnum.NotFound);
+
+        var rows = await _db.ExamSessionClasses.AsNoTracking()
+            .Where(x => x.ExamSessionId == examSessionId)
+            .Include(x => x.ExamClass)
+            .OrderBy(x => x.ExamClass.Code)
+            .Select(x => new
+            {
+                x.Id,
+                x.ExamSessionId,
+                x.ExamClassId,
+                ClassCode = x.ExamClass.Code,
+                ClassName = x.ExamClass.Name,
+                x.ExpectedStudentCount,
+                x.BatchStatus
+            })
+            .ToListAsync(cancellationToken);
+
+        var classIds = rows.Select(r => r.Id).ToList();
+        var subs = await _db.ExamSubmissions.AsNoTracking()
+            .Where(s => s.ExamSessionClassId != null && classIds.Contains(s.ExamSessionClassId.Value))
+            .Include(s => s.SubmissionFiles)
+            .ToListAsync(cancellationToken);
+
+        static bool HasQ1Q2(ICollection<ExamSubmissionFile> files) =>
+            files.Any(f => f.QuestionLabel.Equals("Q1", StringComparison.OrdinalIgnoreCase)) &&
+            files.Any(f => f.QuestionLabel.Equals("Q2", StringComparison.OrdinalIgnoreCase));
+
+        var byClass = subs.GroupBy(s => s.ExamSessionClassId!.Value).ToDictionary(g => g.Key, g => g.ToList());
+
+        var dtos = rows.Select(x =>
+        {
+            var list = byClass.GetValueOrDefault(x.Id) ?? new List<ExamSubmission>();
+            var total = list.Count;
+            var ready = list.Count(s =>
+                HasQ1Q2(s.SubmissionFiles) &&
+                s.WorkflowStatus == ExamSubmissionStatus.Pending &&
+                s.TotalScore == null);
+            return new ExamSessionClassListItemDto(
+                x.Id,
+                x.ExamSessionId,
+                x.ExamClassId,
+                x.ClassCode,
+                x.ClassName,
+                x.ExpectedStudentCount,
+                x.BatchStatus.ToString(),
+                ready,
+                total);
+        }).ToList();
+
+        return Result<List<ExamSessionClassListItemDto>>.Success(dtos, "OK");
+    }
+
+    public async Task<Result<ExamSessionClassListItemDto>> CreateExamSessionClassAsync(
+        Guid examSessionId,
+        CreateExamSessionClassRequest req,
+        CancellationToken cancellationToken = default)
+    {
+        var session = await _db.ExamSessions.AsNoTracking().FirstOrDefaultAsync(x => x.Id == examSessionId, cancellationToken);
+        if (session == null)
+            return Result<ExamSessionClassListItemDto>.Failure("Không tìm thấy ca thi.", ErrorCodeEnum.NotFound);
+
+        var examClass = await _db.ExamClasses.FirstOrDefaultAsync(x => x.Id == req.ExamClassId, cancellationToken);
+        if (examClass == null)
+            return Result<ExamSessionClassListItemDto>.Failure("Không tìm thấy lớp.", ErrorCodeEnum.NotFound);
+
+        if (examClass.SemesterId != session.SemesterId)
+            return Result<ExamSessionClassListItemDto>.Failure("Lớp không cùng học kỳ với ca thi.", ErrorCodeEnum.ValidationFailed);
+
+        if (await _db.ExamSessionClasses.AnyAsync(x => x.ExamSessionId == examSessionId && x.ExamClassId == req.ExamClassId, cancellationToken))
+            return Result<ExamSessionClassListItemDto>.Failure("Ca thi đã gắn lớp này rồi.", ErrorCodeEnum.DuplicateEntry);
+
+        var expected = req.ExpectedStudentCount <= 0 ? examClass.MaxStudents : req.ExpectedStudentCount;
+        if (expected > examClass.MaxStudents)
+            return Result<ExamSessionClassListItemDto>.Failure(
+                $"ExpectedStudentCount không được vượt MaxStudents của lớp ({examClass.MaxStudents}).",
+                ErrorCodeEnum.ValidationFailed);
+
+        var entity = new ExamSessionClass
+        {
+            Id = Guid.NewGuid(),
+            ExamSessionId = examSessionId,
+            ExamClassId = req.ExamClassId,
+            ExpectedStudentCount = expected,
+            BatchStatus = ClassGradingBatchStatus.CollectingSubmissions,
+            CreatedAt = DateTime.UtcNow,
+            Status = EntityStatusEnum.Active
+        };
+        _db.ExamSessionClasses.Add(entity);
+        await _db.SaveChangesAsync(cancellationToken);
+
+        var dto = (await ListExamSessionClassesAsync(examSessionId, cancellationToken)).Data!
+            .First(x => x.Id == entity.Id);
+        return Result<ExamSessionClassListItemDto>.Success(dto, "Đã gắn lớp vào ca thi.");
+    }
+
+    public async Task<Result<bool>> DeleteExamSessionClassAsync(Guid examSessionClassId, CancellationToken cancellationToken = default)
+    {
+        var entity = await _db.ExamSessionClasses.FirstOrDefaultAsync(x => x.Id == examSessionClassId, cancellationToken);
+        if (entity == null)
+            return Result<bool>.Failure("Không tìm thấy bản ghi lớp trong ca.", ErrorCodeEnum.NotFound);
+
+        if (await _db.ExamSubmissions.AnyAsync(x => x.ExamSessionClassId == examSessionClassId, cancellationToken))
+            return Result<bool>.Failure("Không xóa được — đã có bài nộp cho lớp trong ca này.", ErrorCodeEnum.BusinessRuleViolation);
+
+        // Junction: xóa hẳn để có thể gắn lại (unique session+class).
+        _db.ExamSessionClasses.Remove(entity);
+        await _db.SaveChangesAsync(cancellationToken);
+        return Result<bool>.Success(true, "Đã gỡ lớp khỏi ca thi.");
+    }
+
     private async Task DeactivateOtherPacksAsync(Guid examSessionId, Guid exceptPackId, CancellationToken cancellationToken)
     {
         var others = await _db.ExamGradingPacks
@@ -652,6 +871,7 @@ public class ExamGradingAdminService : IExamGradingAdminService
                 x.StartsAtUtc,
                 x.ExamDurationMinutes,
                 x.EndsAtUtc,
+                x.DeferredClassGrading,
                 x.Topics.Count,
                 x.Topics.SelectMany(t => t.Questions).Count(),
                 x.Submissions.Count))

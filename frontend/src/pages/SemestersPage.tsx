@@ -107,7 +107,7 @@ export function SemestersPage() {
     <div className="ag-stack ag-stack--lg">
       <div className="ag-toolbar">
         <div>
-          <p className="ag-toolbar__lead">Học kỳ — CRUD (POST/PUT/DELETE /api/cms/grading/semesters)</p>
+          <p className="ag-toolbar__lead">Quản lý học kỳ — tạo, sửa và xóa</p>
         </div>
         <div className="ag-toolbar__actions">
           <Link to="/exam-sessions" className="ag-btn ag-btn--secondary">
@@ -227,7 +227,7 @@ export function SemestersPage() {
                 rows.map((s) => (
                   <tr key={s.id}>
                     <td>
-                      <code className="ag-code">{s.code}</code>
+                      <span className="ag-table__strong">{s.code}</span>
                     </td>
                     <td className="ag-table__strong">{s.name}</td>
                     <td className="ag-table__muted">

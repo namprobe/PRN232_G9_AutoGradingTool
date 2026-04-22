@@ -53,6 +53,7 @@ public class ExamGradingAppService : IExamGradingAppService
                 x.StartsAtUtc,
                 x.ExamDurationMinutes,
                 x.EndsAtUtc,
+                x.DeferredClassGrading,
                 x.Topics.Count,
                 x.Topics.SelectMany(t => t.Questions).Count(),
                 x.Submissions.Count))
@@ -93,23 +94,33 @@ public class ExamGradingAppService : IExamGradingAppService
             session.StartsAtUtc,
             session.ExamDurationMinutes,
             session.EndsAtUtc,
+            session.DeferredClassGrading,
             topics);
 
         return Result<ExamSessionDetailDto>.Success(dto, "OK");
     }
 
-    public async Task<Result<List<ExamSubmissionListItemDto>>> ListSubmissionsAsync(Guid examSessionId, CancellationToken cancellationToken = default)
+    public async Task<Result<List<ExamSubmissionListItemDto>>> ListSubmissionsAsync(
+        Guid examSessionId,
+        Guid? examSessionClassId = null,
+        CancellationToken cancellationToken = default)
     {
         var exists = await _db.ExamSessions.AnyAsync(x => x.Id == examSessionId, cancellationToken);
         if (!exists)
             return Result<List<ExamSubmissionListItemDto>>.Failure("Không tìm thấy ca thi.", ErrorCodeEnum.NotFound);
 
-        var rows = await _db.ExamSubmissions.AsNoTracking()
-            .Where(x => x.ExamSessionId == examSessionId)
+        var q = _db.ExamSubmissions.AsNoTracking()
+            .Where(x => x.ExamSessionId == examSessionId);
+        if (examSessionClassId.HasValue)
+            q = q.Where(x => x.ExamSessionClassId == examSessionClassId.Value);
+
+        var rows = await q
             .OrderByDescending(x => x.SubmittedAtUtc)
             .Select(x => new ExamSubmissionListItemDto(
                 x.Id,
                 x.ExamSessionId,
+                x.ExamSessionClassId,
+                x.ExamSessionClass != null ? x.ExamSessionClass.ExamClass.Code : null,
                 x.StudentCode,
                 x.StudentName,
                 x.WorkflowStatus.ToString(),
@@ -124,6 +135,7 @@ public class ExamGradingAppService : IExamGradingAppService
     {
         var sub = await _db.ExamSubmissions.AsNoTracking()
             .Include(x => x.ExamSession)
+            .Include(x => x.ExamSessionClass).ThenInclude(c => c!.ExamClass)
             .Include(x => x.SubmissionFiles)
             .Include(x => x.QuestionScores).ThenInclude(qs => qs.ExamQuestion)
             .Include(x => x.TestCaseScores).ThenInclude(ts => ts.ExamTestCase).ThenInclude(tc => tc!.ExamQuestion)
@@ -158,6 +170,8 @@ public class ExamGradingAppService : IExamGradingAppService
             sub.Id,
             sub.ExamSessionId,
             sub.ExamSession.Code,
+            sub.ExamSessionClassId,
+            sub.ExamSessionClass?.ExamClass.Code,
             sub.StudentCode,
             sub.StudentName,
             sub.WorkflowStatus.ToString(),
@@ -177,6 +191,7 @@ public class ExamGradingAppService : IExamGradingAppService
         IFormFile q1Zip,
         IFormFile q2Zip,
         bool bypassExamWindow = false,
+        Guid? examSessionClassId = null,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(studentCode))
@@ -201,6 +216,39 @@ public class ExamGradingAppService : IExamGradingAppService
         if (!IsZip(q1Zip) || !IsZip(q2Zip))
             return Result<Guid>.Failure("Hai file phải là .zip.", ErrorCodeEnum.InvalidFileType);
 
+        if (session.DeferredClassGrading && !examSessionClassId.HasValue)
+            return Result<Guid>.Failure(
+                "Ca thi bật chấm theo lớp — bắt buộc examSessionClassId (lớp trong ca).",
+                ErrorCodeEnum.ValidationFailed);
+
+        ExamSessionClass? sessionClass = null;
+        if (examSessionClassId.HasValue)
+        {
+            sessionClass = await _db.ExamSessionClasses
+                .Include(x => x.ExamClass)
+                .FirstOrDefaultAsync(x => x.Id == examSessionClassId.Value, cancellationToken);
+            if (sessionClass == null)
+                return Result<Guid>.Failure("Không tìm thấy lớp trong ca (examSessionClassId).", ErrorCodeEnum.NotFound);
+            if (sessionClass.ExamSessionId != examSessionId)
+                return Result<Guid>.Failure("examSessionClassId không thuộc ca thi đã chọn.", ErrorCodeEnum.ValidationFailed);
+            if (sessionClass.ExamClass.SemesterId != session.SemesterId)
+                return Result<Guid>.Failure("Lớp không cùng học kỳ với ca thi.", ErrorCodeEnum.ValidationFailed);
+
+            var code = studentCode.Trim();
+            if (await _db.ExamSubmissions.AnyAsync(
+                    x => x.ExamSessionClassId == sessionClass.Id && x.StudentCode == code,
+                    cancellationToken))
+                return Result<Guid>.Failure("Sinh viên đã nộp bài cho lớp này trong ca.", ErrorCodeEnum.DuplicateEntry);
+
+            var nInClass = await _db.ExamSubmissions.CountAsync(x => x.ExamSessionClassId == sessionClass.Id, cancellationToken);
+            if (nInClass >= sessionClass.ExpectedStudentCount)
+                return Result<Guid>.Failure(
+                    $"Đã đủ tối đa {sessionClass.ExpectedStudentCount} bài cho lớp này trong ca.",
+                    ErrorCodeEnum.BusinessRuleViolation);
+        }
+
+        var deferGrading = session.DeferredClassGrading;
+
         var pack = await _db.ExamGradingPacks
             .Where(p => p.ExamSessionId == examSessionId && p.IsActive)
             .OrderByDescending(p => p.Version)
@@ -210,6 +258,7 @@ public class ExamGradingAppService : IExamGradingAppService
         {
             Id = Guid.NewGuid(),
             ExamSessionId = examSessionId,
+            ExamSessionClassId = examSessionClassId,
             ExamGradingPackId = pack?.Id,
             StudentCode = studentCode.Trim(),
             StudentName = string.IsNullOrWhiteSpace(studentName) ? null : studentName.Trim(),
@@ -220,7 +269,7 @@ public class ExamGradingAppService : IExamGradingAppService
         };
 
         Guid? gradingJobId = null;
-        if (pack != null)
+        if (pack != null && !deferGrading)
         {
             var job = new GradingJob
             {
@@ -268,6 +317,16 @@ public class ExamGradingAppService : IExamGradingAppService
                     CreatedAt = DateTime.UtcNow,
                     Status = EntityStatusEnum.Active
                 });
+
+            if (deferGrading)
+            {
+                submission.WorkflowStatus = ExamSubmissionStatus.Pending;
+                await _db.SaveChangesAsync(cancellationToken);
+                return Result<Guid>.Success(
+                    submission.Id,
+                    "Đã nhận đủ Q1/Q2 — chờ proctor chạy chấm batch theo lớp.");
+            }
+
             submission.WorkflowStatus = ExamSubmissionStatus.Running;
 
             if (gradingJobId.HasValue)
@@ -326,6 +385,8 @@ public class ExamGradingAppService : IExamGradingAppService
 
         var submission = await _db.ExamSubmissions
             .Include(x => x.SubmissionFiles)
+            .Include(x => x.QuestionScores)
+            .Include(x => x.TestCaseScores)
             .FirstOrDefaultAsync(x => x.Id == submissionId, cancellationToken);
 
         if (submission == null)
@@ -356,9 +417,11 @@ public class ExamGradingAppService : IExamGradingAppService
             Status = EntityStatusEnum.Active
         });
 
-        // Reset trạng thái về Pending để chờ trigger regrade
+        _db.ExamQuestionScores.RemoveRange(submission.QuestionScores);
+        _db.ExamTestCaseScores.RemoveRange(submission.TestCaseScores);
         submission.WorkflowStatus = ExamSubmissionStatus.Pending;
         submission.TotalScore = null;
+        submission.UpdatedAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync(cancellationToken);
         _logger.LogInformation("Admin replaced {Label} file for submission {Id}", label, submissionId);
@@ -440,6 +503,141 @@ public class ExamGradingAppService : IExamGradingAppService
                 : "Chấm lại thất bại — xem log.");
 
         return Result<TriggerRegradeResponseDto>.Success(dto, dto.Message);
+    }
+
+    public async Task<Result<StartClassBatchGradingResponseDto>> StartClassBatchGradingAsync(
+        Guid examSessionClassId,
+        StartClassBatchGradingRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var esc = await _db.ExamSessionClasses
+            .Include(x => x.ExamSession)
+            .FirstOrDefaultAsync(x => x.Id == examSessionClassId, cancellationToken);
+
+        if (esc == null)
+            return Result<StartClassBatchGradingResponseDto>.Failure(
+                "Không tìm thấy lớp trong ca.",
+                ErrorCodeEnum.NotFound);
+
+        if (!esc.ExamSession.DeferredClassGrading)
+            return Result<StartClassBatchGradingResponseDto>.Failure(
+                "Ca thi chưa bật DeferredClassGrading — không dùng API batch theo lớp.",
+                ErrorCodeEnum.BusinessRuleViolation);
+
+        if (request.RedoCompletedBatch && esc.BatchStatus == ClassGradingBatchStatus.Completed)
+        {
+            await ResetSubmissionsForClassBatchRedoAsync(examSessionClassId, cancellationToken);
+            esc.BatchStatus = ClassGradingBatchStatus.CollectingSubmissions;
+            esc.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+        else if (esc.BatchStatus == ClassGradingBatchStatus.Completed && !request.RedoCompletedBatch)
+        {
+            return Result<StartClassBatchGradingResponseDto>.Failure(
+                "Batch đã hoàn tất. Gửi redoCompletedBatch: true trong JSON body để xoá điểm và chấm lại.",
+                ErrorCodeEnum.BusinessRuleViolation);
+        }
+
+        if (esc.BatchStatus == ClassGradingBatchStatus.Failed)
+        {
+            esc.BatchStatus = ClassGradingBatchStatus.CollectingSubmissions;
+            esc.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+
+        if (esc.BatchStatus == ClassGradingBatchStatus.GradingInProgress)
+        {
+            return Result<StartClassBatchGradingResponseDto>.Failure(
+                "Đang chấm batch — không gọi song song.",
+                ErrorCodeEnum.BusinessRuleViolation);
+        }
+
+        var subs = await _db.ExamSubmissions
+            .Include(s => s.SubmissionFiles)
+            .Where(s => s.ExamSessionClassId == examSessionClassId)
+            .OrderBy(s => s.StudentCode)
+            .ToListAsync(cancellationToken);
+
+        var toGrade = subs
+            .Where(s => HasQ1Q2Files(s.SubmissionFiles)
+                        && s.WorkflowStatus == ExamSubmissionStatus.Pending
+                        && s.TotalScore == null)
+            .ToList();
+
+        if (!request.ForceStartWithoutFullRoster && toGrade.Count < esc.ExpectedStudentCount)
+        {
+            return Result<StartClassBatchGradingResponseDto>.Failure(
+                $"Chưa đủ bài chờ chấm (có đủ Q1+Q2, trạng thái Pending): {toGrade.Count}/{esc.ExpectedStudentCount}. " +
+                "Dùng forceStartWithoutFullRoster=true nếu proctor cho phép chấm sớm.",
+                ErrorCodeEnum.BusinessRuleViolation);
+        }
+
+        if (toGrade.Count == 0)
+        {
+            return Result<StartClassBatchGradingResponseDto>.Failure(
+                "Không có bài nào đủ điều kiện chấm (Pending + Q1+Q2).",
+                ErrorCodeEnum.ValidationFailed);
+        }
+
+        esc.BatchStatus = ClassGradingBatchStatus.GradingInProgress;
+        esc.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync(cancellationToken);
+
+        var graded = 0;
+        try
+        {
+            foreach (var sub in toGrade)
+            {
+                await ApplyStubGradingAsync(sub.Id, cancellationToken);
+                graded++;
+            }
+
+            esc.BatchStatus = ClassGradingBatchStatus.Completed;
+            esc.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync(cancellationToken);
+
+            var okDto = new StartClassBatchGradingResponseDto(
+                esc.Id,
+                esc.BatchStatus.ToString(),
+                graded,
+                $"Đã chấm tuần tự {graded} bài (stub).");
+            return Result<StartClassBatchGradingResponseDto>.Success(okDto, okDto.Message);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Batch chấm theo lớp thất bại — sessionClass {Id}", examSessionClassId);
+            esc.BatchStatus = ClassGradingBatchStatus.Failed;
+            esc.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync(cancellationToken);
+            return Result<StartClassBatchGradingResponseDto>.Failure(
+                ex.Message.Length > 500 ? ex.Message[..500] : ex.Message,
+                ErrorCodeEnum.FileUploadFailed);
+        }
+    }
+
+    private static bool HasQ1Q2Files(IEnumerable<ExamSubmissionFile> files) =>
+        files.Any(f => f.QuestionLabel.Equals("Q1", StringComparison.OrdinalIgnoreCase)) &&
+        files.Any(f => f.QuestionLabel.Equals("Q2", StringComparison.OrdinalIgnoreCase));
+
+    private async Task ResetSubmissionsForClassBatchRedoAsync(Guid examSessionClassId, CancellationToken cancellationToken)
+    {
+        var subs = await _db.ExamSubmissions
+            .Include(s => s.QuestionScores)
+            .Include(s => s.TestCaseScores)
+            .Where(s => s.ExamSessionClassId == examSessionClassId)
+            .ToListAsync(cancellationToken);
+
+        var now = DateTime.UtcNow;
+        foreach (var sub in subs)
+        {
+            _db.ExamQuestionScores.RemoveRange(sub.QuestionScores);
+            _db.ExamTestCaseScores.RemoveRange(sub.TestCaseScores);
+            sub.TotalScore = null;
+            sub.WorkflowStatus = ExamSubmissionStatus.Pending;
+            sub.UpdatedAt = now;
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
     }
 
     private static bool IsZip(IFormFile f)

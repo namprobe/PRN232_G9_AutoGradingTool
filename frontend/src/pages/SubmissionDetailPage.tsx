@@ -4,7 +4,14 @@ import { useAuth } from "../auth/AuthContext";
 import { getSubmission, replaceSubmissionFile, triggerRegrade } from "../api/gradingApi";
 import type { ExamSubmissionDetail, ExamTestCaseScore } from "../api/gradingTypes";
 import { StatusBadge } from "../components/StatusBadge";
-import { questionLabelsForReplace, submissionMaxScore, workflowToQPair } from "../lib/gradingUi";
+import {
+  jobStatusLabel,
+  questionLabelsForReplace,
+  submissionMaxScore,
+  workflowStatusLabel,
+  workflowToQPair,
+} from "../lib/gradingUi";
+import { examSessionDetailPath, examSessionSubmissionsPath } from "../lib/workflowRoutes";
 
 function outcomeToUi(outcome: string): "pass" | "fail" | "pending" | "error" {
   const o = (outcome || "").toLowerCase();
@@ -78,9 +85,9 @@ export function SubmissionDetailPage() {
 
   const listBackHref =
     detail != null
-      ? `/submissions?examSessionId=${encodeURIComponent(detail.examSessionId)}`
+      ? examSessionSubmissionsPath(detail.examSessionId)
       : fromSessionId
-        ? `/submissions?examSessionId=${encodeURIComponent(fromSessionId)}`
+        ? examSessionSubmissionsPath(fromSessionId)
         : "/submissions";
 
   const maxScore = useMemo(() => (detail ? submissionMaxScore(detail) : 10), [detail]);
@@ -90,7 +97,7 @@ export function SubmissionDetailPage() {
   async function onReplaceSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!submissionId || !replaceFile) {
-      setAdminErr("Chọn file .zip.");
+      setAdminErr("Vui lòng chọn tệp .zip.");
       return;
     }
     setAdminErr(null);
@@ -115,8 +122,10 @@ export function SubmissionDetailPage() {
     setRegradeBusy(false);
     if (!r.isSuccess) setAdminErr(r.message ?? "Trigger regrade thất bại");
     else {
-      const extra = r.data ? ` Job ${r.data.gradingJobId} · ${r.data.jobStatus}.` : "";
-      setAdminMsg((r.message ?? "Đã enqueue chấm lại.") + extra);
+      const extra = r.data
+        ? ` Mã tác vụ: ${r.data.gradingJobId}. Trạng thái: ${jobStatusLabel(r.data.jobStatus)}.`
+        : "";
+      setAdminMsg((r.message ?? "Đã gửi yêu cầu chấm lại.") + extra);
       await load();
     }
   }
@@ -144,8 +153,8 @@ export function SubmissionDetailPage() {
   const pct =
     detail.totalScore != null && maxScore > 0 ? Math.round((detail.totalScore / maxScore) * 100) : null;
   const cases = detail.testCaseScores;
-  const sessionHref = `/exam-sessions/${detail.examSessionId}`;
-  const subsHref = `/submissions?examSessionId=${encodeURIComponent(detail.examSessionId)}`;
+  const sessionHref = examSessionDetailPath(detail.examSessionId);
+  const subsHref = examSessionSubmissionsPath(detail.examSessionId);
 
   return (
     <div className="ag-stack ag-stack--lg">
@@ -156,29 +165,29 @@ export function SubmissionDetailPage() {
           </Link>
           <h2 className="ag-detail-head__title">
             {detail.studentName ?? "—"}{" "}
-            <code className="ag-code ag-code--lg">{detail.studentCode}</code>
+            <span className="ag-table__strong">{detail.studentCode}</span>
           </h2>
           <p className="ag-detail-head__meta">
-            Ca <code className="ag-code">{detail.examSessionCode}</code> · WorkflowStatus{" "}
-            <code className="ag-code ag-code--sm">{detail.status}</code> · Nộp lúc{" "}
+            Ca thi <span className="ag-table__strong">{detail.examSessionCode}</span> · Trạng thái chấm:{" "}
+            <span className="ag-table__strong">{workflowStatusLabel(detail.status)}</span> · Nộp lúc{" "}
             {new Date(detail.submittedAtUtc).toLocaleString("vi-VN")} ·{" "}
             <Link to={sessionHref} className="ag-linkbtn">
-              Cấu trúc đề
+              Xem đề và cấu hình ca
             </Link>{" "}
             ·{" "}
             <Link to={subsHref} className="ag-linkbtn">
-              Cùng ca thi
+              Các bài cùng ca
             </Link>
           </p>
         </div>
         <div className="ag-detail-head__side">
           <div className="ag-pillboard">
             <div className="ag-pillboard__item">
-              <span className="ag-pillboard__k">Q1</span>
+              <span className="ag-pillboard__k">Câu 1</span>
               <StatusBadge status={qPair.q1} />
             </div>
             <div className="ag-pillboard__item">
-              <span className="ag-pillboard__k">Q2</span>
+              <span className="ag-pillboard__k">Câu 2</span>
               <StatusBadge status={qPair.q2} />
             </div>
           </div>
@@ -221,7 +230,7 @@ export function SubmissionDetailPage() {
         <div className="ag-card__head ag-card__head--row">
           <div>
             <h3 className="ag-card__title">File đã nộp</h3>
-            <p className="ag-card__desc">submissionFiles từ GET submissions/{"{id}"}</p>
+            <p className="ag-card__desc">Tệp zip theo từng câu và vị trí lưu trữ</p>
           </div>
         </div>
         <div className="ag-table-wrap">
@@ -230,14 +239,14 @@ export function SubmissionDetailPage() {
               <tr>
                 <th>Câu</th>
                 <th>Tên gốc</th>
-                <th>Đường dẫn lưu</th>
+                <th>Vị trí lưu</th>
               </tr>
             </thead>
             <tbody>
               {detail.submissionFiles.length === 0 ? (
                 <tr>
                   <td colSpan={3} className="ag-table__muted">
-                    Chưa có bản ghi file (có thể bài cũ trước khi có ExamSubmissionFile)
+                    Chưa có thông tin tệp đính kèm (bài nộp cũ có thể chưa được lưu đầy đủ)
                   </td>
                 </tr>
               ) : (
@@ -248,7 +257,7 @@ export function SubmissionDetailPage() {
                     </td>
                     <td>{f.originalFileName ?? "—"}</td>
                     <td className="ag-table__muted">
-                      <code className="ag-code ag-code--sm">{f.storageRelativePath}</code>
+                      <span className="ag-table__hint">{f.storageRelativePath}</span>
                     </td>
                   </tr>
                 ))
@@ -260,16 +269,16 @@ export function SubmissionDetailPage() {
 
       <section className="ag-card ag-animate-in">
         <div className="ag-card__head">
-          <h3 className="ag-card__title">Admin — thay file &amp; chấm lại</h3>
+          <h3 className="ag-card__title">Quản trị — thay tệp và chấm lại</h3>
           <p className="ag-card__desc">
-            PUT /submissions/{"{id}"}/files (multipart) rồi POST /submissions/{"{id}"}/regrade — khớp Swagger CMS_Grading
+            Tải zip thay thế cho một câu, sau đó yêu cầu hệ thống chấm lại toàn bài.
           </p>
         </div>
         <div className="ag-grid2" style={{ alignItems: "start" }}>
           <form className="ag-stack ag-stack--sm" onSubmit={onReplaceSubmit}>
             <div className="ag-field">
               <label className="ag-label" htmlFor="replace-label">
-                Nhãn câu (questionLabel)
+                Câu cần thay tệp
               </label>
               <select
                 id="replace-label"
@@ -286,7 +295,7 @@ export function SubmissionDetailPage() {
             </div>
             <div className="ag-field">
               <label className="ag-label" htmlFor="replace-zip">
-                File zip thay thế
+                Tệp zip thay thế
               </label>
               <input
                 id="replace-zip"
@@ -297,7 +306,7 @@ export function SubmissionDetailPage() {
               />
             </div>
             <button type="submit" className="ag-btn ag-btn--secondary" disabled={replaceBusy}>
-              {replaceBusy ? "Đang tải…" : "Thay file zip"}
+              {replaceBusy ? "Đang tải lên…" : "Thay tệp zip"}
             </button>
           </form>
           <div className="ag-stack ag-stack--sm">
@@ -305,7 +314,7 @@ export function SubmissionDetailPage() {
               Sau khi thay file, backend đặt workflow về Pending và xóa điểm cũ — cần bấm chấm lại.
             </p>
             <button type="button" className="ag-btn ag-btn--primary" disabled={regradeBusy} onClick={() => void onRegrade()}>
-              {regradeBusy ? "Đang chấm…" : "Trigger chấm lại (regrade)"}
+              {regradeBusy ? "Đang chấm…" : "Yêu cầu chấm lại"}
             </button>
           </div>
         </div>
@@ -352,8 +361,8 @@ export function SubmissionDetailPage() {
       <section className="ag-card ag-card--flush ag-animate-in">
         <div className="ag-card__head ag-card__head--row">
           <div>
-            <h3 className="ag-card__title">Testcase & điểm thành phần</h3>
-            <p className="ag-card__desc">GET /api/cms/grading/submissions/{"{id}"}</p>
+            <h3 className="ag-card__title">Bài kiểm tra và điểm thành phần</h3>
+            <p className="ag-card__desc">Kết quả từng bài kiểm tra trong đề</p>
           </div>
         </div>
         <div className="ag-table-wrap">
