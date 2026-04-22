@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using PRN232_G9_AutoGradingTool.Infrastructure.Context;
@@ -11,9 +12,11 @@ using PRN232_G9_AutoGradingTool.Infrastructure.Context;
 namespace PRN232_G9_AutoGradingTool.Infrastructure.Migrations.PRN232_G9_AutoGradingTool
 {
     [DbContext(typeof(PRN232_G9_AutoGradingToolDbContext))]
-    partial class PRN232_G9_AutoGradingToolDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260422164624_UpdateTestCaseAndTestResult")]
+    partial class UpdateTestCaseAndTestResult
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -355,94 +358,6 @@ namespace PRN232_G9_AutoGradingTool.Infrastructure.Migrations.PRN232_G9_AutoGrad
                         .HasDatabaseName("ix_users_status_joining_at");
 
                     b.ToTable("users", (string)null);
-                });
-
-            modelBuilder.Entity("PRN232_G9_AutoGradingTool.Domain.Entities.ExamClass", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("code");
-
-                    b.Property<DateTime?>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
-
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("uuid")
-                        .HasColumnName("created_by");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("deleted_at");
-
-                    b.Property<Guid?>("DeletedBy")
-                        .HasColumnType("uuid")
-                        .HasColumnName("deleted_by");
-
-                    b.Property<bool>("IsDeleted")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(false)
-                        .HasColumnName("is_deleted");
-
-                    b.Property<int>("MaxStudents")
-                        .HasColumnType("integer")
-                        .HasColumnName("max_students");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
-                        .HasColumnName("name");
-
-                    b.Property<Guid>("SemesterId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("semester_id");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer")
-                        .HasColumnName("status");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.Property<Guid?>("UpdatedBy")
-                        .HasColumnType("uuid")
-                        .HasColumnName("updated_by");
-
-                    b.HasKey("Id")
-                        .HasName("pk_exam_classes");
-
-                    b.HasIndex("IsDeleted")
-                        .HasDatabaseName("ix_examclass_is_deleted");
-
-                    b.HasIndex("Status")
-                        .HasDatabaseName("ix_examclass_status");
-
-                    b.HasIndex("UpdatedAt")
-                        .HasDatabaseName("ix_examclass_updated_at");
-
-                    b.HasIndex("SemesterId", "Code")
-                        .IsUnique()
-                        .HasDatabaseName("ix_exam_classes_semester_id_code");
-
-                    b.HasIndex("Status", "IsDeleted")
-                        .HasDatabaseName("ix_examclass_status_is_deleted");
-
-                    b.HasIndex("IsDeleted", "Status", "UpdatedAt")
-                        .HasDatabaseName("ix_examclass_is_deleted_status_updated_at");
-
-                    b.ToTable("exam_classes", (string)null);
                 });
 
             modelBuilder.Entity("PRN232_G9_AutoGradingTool.Domain.Entities.ExamGradingPack", b =>
@@ -825,12 +740,6 @@ namespace PRN232_G9_AutoGradingTool.Infrastructure.Migrations.PRN232_G9_AutoGrad
                         .HasColumnType("uuid")
                         .HasColumnName("created_by");
 
-                    b.Property<bool>("DeferredClassGrading")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(false)
-                        .HasColumnName("deferred_class_grading");
-
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("deleted_at");
@@ -906,93 +815,6 @@ namespace PRN232_G9_AutoGradingTool.Infrastructure.Migrations.PRN232_G9_AutoGrad
                     b.ToTable("exam_sessions", (string)null);
                 });
 
-            modelBuilder.Entity("PRN232_G9_AutoGradingTool.Domain.Entities.ExamSessionClass", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<int>("BatchStatus")
-                        .HasColumnType("integer")
-                        .HasColumnName("batch_status");
-
-                    b.Property<DateTime?>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
-
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("uuid")
-                        .HasColumnName("created_by");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("deleted_at");
-
-                    b.Property<Guid?>("DeletedBy")
-                        .HasColumnType("uuid")
-                        .HasColumnName("deleted_by");
-
-                    b.Property<Guid>("ExamClassId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("exam_class_id");
-
-                    b.Property<Guid>("ExamSessionId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("exam_session_id");
-
-                    b.Property<int>("ExpectedStudentCount")
-                        .HasColumnType("integer")
-                        .HasColumnName("expected_student_count");
-
-                    b.Property<bool>("IsDeleted")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(false)
-                        .HasColumnName("is_deleted");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer")
-                        .HasColumnName("status");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.Property<Guid?>("UpdatedBy")
-                        .HasColumnType("uuid")
-                        .HasColumnName("updated_by");
-
-                    b.HasKey("Id")
-                        .HasName("pk_exam_session_classes");
-
-                    b.HasIndex("ExamClassId")
-                        .HasDatabaseName("ix_exam_session_classes_exam_class_id");
-
-                    b.HasIndex("IsDeleted")
-                        .HasDatabaseName("ix_examsessionclass_is_deleted");
-
-                    b.HasIndex("Status")
-                        .HasDatabaseName("ix_examsessionclass_status");
-
-                    b.HasIndex("UpdatedAt")
-                        .HasDatabaseName("ix_examsessionclass_updated_at");
-
-                    b.HasIndex("ExamSessionId", "ExamClassId")
-                        .IsUnique()
-                        .HasDatabaseName("ix_exam_session_classes_exam_session_id_exam_class_id");
-
-                    b.HasIndex("Status", "IsDeleted")
-                        .HasDatabaseName("ix_examsessionclass_status_is_deleted");
-
-                    b.HasIndex("IsDeleted", "Status", "UpdatedAt")
-                        .HasDatabaseName("ix_examsessionclass_is_deleted_status_updated_at");
-
-                    b.ToTable("exam_session_classes", (string)null);
-                });
-
             modelBuilder.Entity("PRN232_G9_AutoGradingTool.Domain.Entities.ExamSubmission", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1021,10 +843,6 @@ namespace PRN232_G9_AutoGradingTool.Infrastructure.Migrations.PRN232_G9_AutoGrad
                     b.Property<Guid?>("ExamGradingPackId")
                         .HasColumnType("uuid")
                         .HasColumnName("exam_grading_pack_id");
-
-                    b.Property<Guid?>("ExamSessionClassId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("exam_session_class_id");
 
                     b.Property<Guid>("ExamSessionId")
                         .HasColumnType("uuid")
@@ -1089,11 +907,6 @@ namespace PRN232_G9_AutoGradingTool.Infrastructure.Migrations.PRN232_G9_AutoGrad
 
                     b.HasIndex("UpdatedAt")
                         .HasDatabaseName("ix_examsubmission_updated_at");
-
-                    b.HasIndex("ExamSessionClassId", "StudentCode")
-                        .IsUnique()
-                        .HasDatabaseName("ix_exam_submissions_exam_session_class_id_student_code")
-                        .HasFilter("\"exam_session_class_id\" IS NOT NULL");
 
                     b.HasIndex("ExamSessionId", "StudentCode")
                         .HasDatabaseName("ix_exam_submissions_exam_session_id_student_code");
@@ -2134,18 +1947,6 @@ namespace PRN232_G9_AutoGradingTool.Infrastructure.Migrations.PRN232_G9_AutoGrad
                         .HasConstraintName("fk_user_tokens_users_user_id");
                 });
 
-            modelBuilder.Entity("PRN232_G9_AutoGradingTool.Domain.Entities.ExamClass", b =>
-                {
-                    b.HasOne("PRN232_G9_AutoGradingTool.Domain.Entities.Semester", "Semester")
-                        .WithMany("ExamClasses")
-                        .HasForeignKey("SemesterId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_exam_classes_semesters_semester_id");
-
-                    b.Navigation("Semester");
-                });
-
             modelBuilder.Entity("PRN232_G9_AutoGradingTool.Domain.Entities.ExamGradingPack", b =>
                 {
                     b.HasOne("PRN232_G9_AutoGradingTool.Domain.Entities.ExamSession", "ExamSession")
@@ -2215,27 +2016,6 @@ namespace PRN232_G9_AutoGradingTool.Infrastructure.Migrations.PRN232_G9_AutoGrad
                     b.Navigation("Semester");
                 });
 
-            modelBuilder.Entity("PRN232_G9_AutoGradingTool.Domain.Entities.ExamSessionClass", b =>
-                {
-                    b.HasOne("PRN232_G9_AutoGradingTool.Domain.Entities.ExamClass", "ExamClass")
-                        .WithMany("SessionClasses")
-                        .HasForeignKey("ExamClassId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_exam_session_classes_exam_classes_exam_class_id");
-
-                    b.HasOne("PRN232_G9_AutoGradingTool.Domain.Entities.ExamSession", "ExamSession")
-                        .WithMany("SessionClasses")
-                        .HasForeignKey("ExamSessionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_exam_session_classes_exam_sessions_exam_session_id");
-
-                    b.Navigation("ExamClass");
-
-                    b.Navigation("ExamSession");
-                });
-
             modelBuilder.Entity("PRN232_G9_AutoGradingTool.Domain.Entities.ExamSubmission", b =>
                 {
                     b.HasOne("PRN232_G9_AutoGradingTool.Domain.Entities.ExamGradingPack", "ExamGradingPack")
@@ -2243,12 +2023,6 @@ namespace PRN232_G9_AutoGradingTool.Infrastructure.Migrations.PRN232_G9_AutoGrad
                         .HasForeignKey("ExamGradingPackId")
                         .OnDelete(DeleteBehavior.SetNull)
                         .HasConstraintName("fk_exam_submissions_exam_grading_packs_exam_grading_pack_id");
-
-                    b.HasOne("PRN232_G9_AutoGradingTool.Domain.Entities.ExamSessionClass", "ExamSessionClass")
-                        .WithMany("Submissions")
-                        .HasForeignKey("ExamSessionClassId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .HasConstraintName("fk_exam_submissions_exam_session_classes_exam_session_class_id");
 
                     b.HasOne("PRN232_G9_AutoGradingTool.Domain.Entities.ExamSession", "ExamSession")
                         .WithMany("Submissions")
@@ -2260,8 +2034,6 @@ namespace PRN232_G9_AutoGradingTool.Infrastructure.Migrations.PRN232_G9_AutoGrad
                     b.Navigation("ExamGradingPack");
 
                     b.Navigation("ExamSession");
-
-                    b.Navigation("ExamSessionClass");
                 });
 
             modelBuilder.Entity("PRN232_G9_AutoGradingTool.Domain.Entities.ExamSubmissionFile", b =>
@@ -2374,9 +2146,6 @@ namespace PRN232_G9_AutoGradingTool.Infrastructure.Migrations.PRN232_G9_AutoGrad
                     b.Navigation("Pack");
                 });
 
-            modelBuilder.Entity("PRN232_G9_AutoGradingTool.Domain.Entities.ExamClass", b =>
-                {
-                    b.Navigation("SessionClasses");
             modelBuilder.Entity("PRN232_G9_AutoGradingTool.Domain.Entities.TestResult", b =>
                 {
                     b.HasOne("PRN232_G9_AutoGradingTool.Domain.Entities.ExamSubmission", "Submission")
@@ -2430,16 +2199,9 @@ namespace PRN232_G9_AutoGradingTool.Infrastructure.Migrations.PRN232_G9_AutoGrad
                 {
                     b.Navigation("GradingPacks");
 
-                    b.Navigation("SessionClasses");
-
                     b.Navigation("Submissions");
 
                     b.Navigation("Topics");
-                });
-
-            modelBuilder.Entity("PRN232_G9_AutoGradingTool.Domain.Entities.ExamSessionClass", b =>
-                {
-                    b.Navigation("Submissions");
                 });
 
             modelBuilder.Entity("PRN232_G9_AutoGradingTool.Domain.Entities.ExamSubmission", b =>
@@ -2477,8 +2239,6 @@ namespace PRN232_G9_AutoGradingTool.Infrastructure.Migrations.PRN232_G9_AutoGrad
 
             modelBuilder.Entity("PRN232_G9_AutoGradingTool.Domain.Entities.Semester", b =>
                 {
-                    b.Navigation("ExamClasses");
-
                     b.Navigation("ExamSessions");
                 });
 
