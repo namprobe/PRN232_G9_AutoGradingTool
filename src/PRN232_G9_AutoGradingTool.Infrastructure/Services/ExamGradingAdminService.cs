@@ -447,6 +447,23 @@ public class ExamGradingAdminService : IExamGradingAdminService
         return Result<bool>.Success(true, "Đã xóa testcase.");
     }
 
+    public async Task<Result<IReadOnlyList<ExamTestCaseDetailDto>>> ListTestCasesAsync(Guid examSessionId, CancellationToken cancellationToken = default)
+    {
+        var sessionExists = await _db.ExamSessions.AnyAsync(x => x.Id == examSessionId, cancellationToken);
+        if (!sessionExists)
+            return Result<IReadOnlyList<ExamTestCaseDetailDto>>.Failure("Không tìm thấy ca thi.", ErrorCodeEnum.NotFound);
+
+        var testCases = await _db.ExamTestCases.AsNoTracking()
+            .Where(x => x.ExamQuestion.ExamTopic.ExamSessionId == examSessionId)
+            .OrderBy(x => x.ExamQuestion.ExamTopic.SortOrder)
+            .ThenBy(x => x.ExamQuestion.Label)
+            .ThenBy(x => x.SortOrder)
+            .Select(x => new ExamTestCaseDetailDto(x.Id, x.Name, x.MaxPoints, x.SortOrder))
+            .ToListAsync(cancellationToken);
+
+        return Result<IReadOnlyList<ExamTestCaseDetailDto>>.Success(testCases, "OK");
+    }
+
     public async Task<Result<List<ExamGradingPackListItemDto>>> ListGradingPacksAsync(Guid examSessionId, CancellationToken cancellationToken = default)
     {
         if (!await _db.ExamSessions.AnyAsync(x => x.Id == examSessionId, cancellationToken))
@@ -502,6 +519,95 @@ public class ExamGradingAdminService : IExamGradingAdminService
         return Result<ExamGradingPackListItemDto>.Success(
             new ExamGradingPackListItemDto(entity.Id, entity.Version, entity.Label, entity.IsActive, 0),
             "Đã tạo grading pack.");
+    }
+
+    public async Task<Result<IReadOnlyList<RequestItem>>> BuildRequestItemsAsync(Guid examSessionId, CancellationToken cancellationToken = default)
+    {
+        var sessionExists = await _db.ExamSessions.AnyAsync(x => x.Id == examSessionId, cancellationToken);
+        if (!sessionExists)
+            return Result<IReadOnlyList<RequestItem>>.Failure("Không tìm thấy ca thi.", ErrorCodeEnum.NotFound);
+
+        var rows = await _db.ExamTestCases.AsNoTracking()
+            .Where(x => x.ExamQuestion.ExamTopic.ExamSessionId == examSessionId)
+            .OrderBy(x => x.ExamQuestion.ExamTopic.SortOrder)
+            .ThenBy(x => x.ExamQuestion.Label)
+            .ThenBy(x => x.SortOrder)
+            .Select(x => new RequestItem(
+                x.Method,
+                "{{baseUrl}}" + x.UrlTemplate,
+                string.IsNullOrWhiteSpace(x.RequestBody) ? null : x.RequestBody))
+            .ToListAsync(cancellationToken);
+
+        return Result<IReadOnlyList<RequestItem>>.Success(rows, "OK");
+    }
+
+    public async Task<Result<IReadOnlyList<string>>> BuildTestScriptsAsync(Guid examSessionId, CancellationToken cancellationToken = default)
+    {
+        var sessionExists = await _db.ExamSessions.AnyAsync(x => x.Id == examSessionId, cancellationToken);
+        if (!sessionExists)
+            return Result<IReadOnlyList<string>>.Failure("Không tìm thấy ca thi.", ErrorCodeEnum.NotFound);
+
+        var testCases = await _db.ExamTestCases.AsNoTracking()
+            .Where(x => x.ExamQuestion.ExamTopic.ExamSessionId == examSessionId)
+            .OrderBy(x => x.ExamQuestion.ExamTopic.SortOrder)
+            .ThenBy(x => x.ExamQuestion.Label)
+            .ThenBy(x => x.SortOrder)
+            .ToListAsync(cancellationToken);
+
+        var scripts = new List<string>();
+        foreach (var testCase in testCases)
+        {
+            scripts.AddRange(BuildTestCaseScriptLines(testCase));
+            scripts.Add(string.Empty);
+        }
+
+        return Result<IReadOnlyList<string>>.Success(scripts, "OK");
+    }
+
+    public async Task<Result<string>> BuildCollectionJsonAsync(Guid examSessionId, CancellationToken cancellationToken = default)
+    {
+        var session = await _db.ExamSessions.AsNoTracking()
+            .Include(x => x.Semester)
+            .FirstOrDefaultAsync(x => x.Id == examSessionId, cancellationToken);
+
+        if (session == null)
+            return Result<string>.Failure("Không tìm thấy ca thi.", ErrorCodeEnum.NotFound);
+
+        var testCases = await _db.ExamTestCases.AsNoTracking()
+            .Where(x => x.ExamQuestion.ExamTopic.ExamSessionId == examSessionId)
+            .OrderBy(x => x.ExamQuestion.ExamTopic.SortOrder)
+            .ThenBy(x => x.ExamQuestion.Label)
+            .ThenBy(x => x.SortOrder)
+            .ToListAsync(cancellationToken);
+
+        var items = new List<object>();
+        foreach (var testCase in testCases)
+        {
+            items.Add(BuildCollectionItem(testCase));
+        }
+
+        var collection = new
+        {
+            info = new
+            {
+                name = $"{session.Code} - {session.Title}",
+                schema = "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+            },
+            variable = new[]
+            {
+                new { key = "baseUrl", value = "http://localhost:5000" },
+                new { key = "examSessionId", value = examSessionId.ToString() },
+                new { key = "semesterCode", value = session.Semester.Code }
+            },
+            item = items
+        };
+
+        var json = System.Text.Json.JsonSerializer.Serialize(collection, new System.Text.Json.JsonSerializerOptions
+        {
+            WriteIndented = true
+        });
+
+        return Result<string>.Success(json, "OK");
     }
 
     public async Task<Result<ExamGradingPackListItemDto>> UpdateGradingPackAsync(Guid packId, UpdateGradingPackRequest req, CancellationToken cancellationToken = default)
@@ -900,4 +1006,118 @@ public class ExamGradingAdminService : IExamGradingAdminService
             .Select(x => new ExamTestCaseDetailDto(x.Id, x.Name, x.MaxPoints, x.SortOrder))
             .ToListAsync(cancellationToken);
     }
+
+    private static IReadOnlyList<string> BuildTestCaseScriptLines(ExamTestCase testCase)
+    {
+        var title = EscapeJsString($"{testCase.ExamQuestion.Label} - {testCase.Name}");
+        var scoreText = testCase.MaxPoints.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        var lines = new List<string>
+        {
+            $"// {testCase.ExamQuestion.Label} - {testCase.Name}",
+            $"pm.test(\"{title} - status {testCase.ExpectedStatus}\", function () {{",
+            $"  pm.response.to.have.status({testCase.ExpectedStatus});",
+            "});"
+        };
+
+        var expectedBody = (testCase.ExpectedBody ?? string.Empty).Trim();
+        if (!string.IsNullOrWhiteSpace(expectedBody))
+        {
+            lines.Add($"pm.test(\"{title} - body validation\", function () {{");
+            lines.Add("  const bodyText = pm.response.text();");
+
+            if (expectedBody.Equals("empty_array", StringComparison.OrdinalIgnoreCase))
+            {
+                lines.Add("  const body = pm.response.json();");
+                lines.Add("  pm.expect(Array.isArray(body)).to.be.true;");
+                lines.Add("  pm.expect(body.length).to.equal(0);");
+            }
+            else if (expectedBody.StartsWith("regex:", StringComparison.OrdinalIgnoreCase))
+            {
+                var pattern = EscapeJsRegex(expectedBody[6..].Trim());
+                lines.Add($"  pm.expect(bodyText).to.match(/{pattern}/);");
+            }
+            else if (expectedBody.StartsWith("contains:", StringComparison.OrdinalIgnoreCase))
+            {
+                var expectedText = EscapeJsString(expectedBody[9..].Trim());
+                lines.Add($"  pm.expect(bodyText).to.include(\"{expectedText}\");");
+            }
+            else
+            {
+                var expectedText = EscapeJsString(expectedBody);
+                lines.Add($"  pm.expect(bodyText).to.include(\"{expectedText}\");");
+            }
+
+            lines.Add("});");
+        }
+
+        lines.Add($"pm.test(\"{title} - score {scoreText}\", function () {{");
+        lines.Add($"  pm.environment.set(\"score_{testCase.Id:N}\", \"{scoreText}\");");
+        lines.Add("});");
+
+        return lines;
+    }
+
+    private static object BuildCollectionItem(ExamTestCase testCase)
+    {
+        var scriptLines = BuildTestCaseScriptLines(testCase);
+        var body = string.IsNullOrWhiteSpace(testCase.RequestBody)
+            ? null
+            : new
+            {
+                mode = "raw",
+                raw = testCase.RequestBody,
+                options = new { raw = new { language = "json" } }
+            };
+
+        return new
+        {
+            name = $"{testCase.ExamQuestion.Label} - {testCase.Name}",
+            request = new
+            {
+                method = string.IsNullOrWhiteSpace(testCase.Method) ? "GET" : testCase.Method.ToUpperInvariant(),
+                header = Array.Empty<object>(),
+                url = new
+                {
+                    raw = "{{baseUrl}}" + testCase.UrlTemplate,
+                    host = new[] { "{{baseUrl}}" },
+                    path = NormalizeCollectionPath(testCase.UrlTemplate)
+                },
+                body
+            },
+            @event = new[]
+            {
+                new
+                {
+                    listen = "test",
+                    script = new
+                    {
+                        type = "text/javascript",
+                        exec = scriptLines
+                    }
+                }
+            }
+        };
+    }
+
+    private static string[] NormalizeCollectionPath(string urlTemplate)
+    {
+        return urlTemplate
+            .Trim()
+            .TrimStart('/')
+            .Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+    }
+
+    private static string EscapeJsString(string value) =>
+        value
+            .Replace("\\", "\\\\")
+            .Replace("\"", "\\\"")
+            .Replace("\r", string.Empty)
+            .Replace("\n", "\\n");
+
+    private static string EscapeJsRegex(string value) =>
+        value
+            .Replace("\\", "\\\\")
+            .Replace("/", "\\/")
+            .Replace("\r", string.Empty)
+            .Replace("\n", string.Empty);
 }

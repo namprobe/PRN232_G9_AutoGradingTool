@@ -27,6 +27,10 @@ public interface IExamGradingAdminService
     Task<Result<ExamTestCaseDetailDto>> CreateTestCaseAsync(Guid questionId, CreateExamTestCaseRequest req, CancellationToken cancellationToken = default);
     Task<Result<ExamTestCaseDetailDto>> UpdateTestCaseAsync(Guid testCaseId, UpdateExamTestCaseRequest req, CancellationToken cancellationToken = default);
     Task<Result<bool>> DeleteTestCaseAsync(Guid testCaseId, CancellationToken cancellationToken = default);
+    Task<Result<IReadOnlyList<ExamTestCaseDetailDto>>> ListTestCasesAsync(Guid examSessionId, CancellationToken cancellationToken = default);
+    Task<Result<IReadOnlyList<RequestItem>>> BuildRequestItemsAsync(Guid examSessionId, CancellationToken cancellationToken = default);
+    Task<Result<IReadOnlyList<string>>> BuildTestScriptsAsync(Guid examSessionId, CancellationToken cancellationToken = default);
+    Task<Result<string>> BuildCollectionJsonAsync(Guid examSessionId, CancellationToken cancellationToken = default);
 
     Task<Result<List<ExamGradingPackListItemDto>>> ListGradingPacksAsync(Guid examSessionId, CancellationToken cancellationToken = default);
     Task<Result<ExamGradingPackListItemDto>> CreateGradingPackAsync(Guid examSessionId, CreateGradingPackRequest req, CancellationToken cancellationToken = default);

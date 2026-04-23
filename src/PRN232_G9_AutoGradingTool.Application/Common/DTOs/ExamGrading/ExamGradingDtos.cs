@@ -34,6 +34,16 @@ public record ExamQuestionDetailDto(Guid Id, string Label, string Title, decimal
 
 public record ExamTestCaseDetailDto(Guid Id, string Name, decimal MaxPoints, int SortOrder);
 
+public record RequestItem(string Method, string Url, string? Body);
+
+public record ResultDetail(
+    string TestCaseName,
+    bool Passed,
+    double Score,
+    int ResponseTime,
+    string ErrorMessage,
+    string? RawOutputJson);
+
 public record ExamSubmissionListItemDto(
     Guid Id,
     Guid ExamSessionId,
@@ -58,20 +68,11 @@ public record ExamSubmissionDetailDto(
     decimal? TotalScore,
     IReadOnlyList<SubmissionFileDto> SubmissionFiles,
     IReadOnlyList<ExamQuestionScoreDto> QuestionScores,
-    IReadOnlyList<ExamTestCaseScoreDto> TestCaseScores);
+    IReadOnlyList<ResultDetail> ResultDetails);
 
 public record SubmissionFileDto(string QuestionLabel, string StorageRelativePath, string? OriginalFileName);
 
 public record ExamQuestionScoreDto(Guid ExamQuestionId, string QuestionLabel, decimal Score, decimal MaxScore, string? Summary);
-
-public record ExamTestCaseScoreDto(
-    Guid ExamTestCaseId,
-    string QuestionLabel,
-    string TestCaseName,
-    decimal PointsEarned,
-    decimal MaxPoints,
-    string Outcome,
-    string? Message);
 
 /// <summary>Response khi trigger manual regrade thành công.</summary>
 public record TriggerRegradeResponseDto(
