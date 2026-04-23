@@ -7,6 +7,7 @@ import { WorkflowBreadcrumb, crumbsForSubmissions } from "../components/Workflow
 import { examSessionDetailPath, examSessionSubmissionsPath, examSessionUploadPath } from "../lib/workflowRoutes";
 import { StatusBadge } from "../components/StatusBadge";
 import { listItemMaxScore, workflowToQPair } from "../lib/gradingUi";
+import { formatDateTime } from "../lib/format";
 
 export function SubmissionsListPage() {
   const { token } = useAuth();
@@ -238,7 +239,7 @@ export function SubmissionsListPage() {
                         <td>
                           <span className="ag-table__strong">{sessionCode}</span>
                         </td>
-                        <td className="ag-table__muted">{new Date(s.submittedAtUtc).toLocaleString("vi-VN")}</td>
+                        <td className="ag-table__muted">{formatDateTime(s.submittedAtUtc)}</td>
                         <td>
                           <StatusBadge status={q1} />
                         </td>

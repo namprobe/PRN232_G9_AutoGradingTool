@@ -15,6 +15,7 @@ import type { ExamGradingPackListItem, ExamSessionDetail } from "../api/gradingT
 import { SessionStatusBadge } from "../components/StatusBadge";
 import { inferSessionStatus } from "../lib/gradingUi";
 import { examSessionSubmissionsPath, examSessionUploadPath } from "../lib/workflowRoutes";
+import { formatDateTime } from "../lib/format";
 
 export function ExamSessionDetailPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -106,9 +107,9 @@ export function ExamSessionDetailPage() {
           </h2>
           <p className="ag-detail-head__meta">
             Học kỳ <span className="ag-table__strong">{detail.semesterCode}</span> · Bắt đầu{" "}
-            {new Date(detail.startsAtUtc).toLocaleString("vi-VN")} UTC · Thời lượng{" "}
+            {formatDateTime(detail.startsAtUtc)} · Thời lượng{" "}
             <strong>{detail.examDurationMinutes}</strong> phút · Đóng nộp{" "}
-            {new Date(detail.endsAtUtc).toLocaleString("vi-VN")} UTC ·{" "}
+            {formatDateTime(detail.endsAtUtc)} ·{" "}
             <SessionStatusBadge status={inferSessionStatus(detail.startsAtUtc, detail.endsAtUtc)} />
           </p>
         </div>

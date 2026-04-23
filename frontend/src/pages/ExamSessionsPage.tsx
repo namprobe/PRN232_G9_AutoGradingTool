@@ -7,6 +7,7 @@ import type { ExamSessionListItem, SemesterListItem } from "../api/gradingTypes"
 import { SessionStatusBadge } from "../components/StatusBadge";
 import { inferSessionStatus } from "../lib/gradingUi";
 import { examSessionSubmissionsPath } from "../lib/workflowRoutes";
+import { formatDateTime, localDateTimeToUTC } from "../lib/format";
 
 export function ExamSessionsPage() {
   const { token } = useAuth();
@@ -78,9 +79,9 @@ export function ExamSessionsPage() {
       semesterId: createSemId,
       code: createForm.code.trim(),
       title: createForm.title.trim(),
-      startsAtUtc: new Date(createForm.startsLocal).toISOString(),
+      startsAtUtc: localDateTimeToUTC(createForm.startsLocal),
       examDurationMinutes: createForm.duration,
-      endsAtUtc: new Date(createForm.endsLocal).toISOString(),
+      endsAtUtc: localDateTimeToUTC(createForm.endsLocal),
     });
     if (!r.isSuccess) setCmsMsg(r.message ?? "Lỗi");
     else {
@@ -248,8 +249,8 @@ export function ExamSessionsPage() {
                 <th>Mã</th>
                 <th>Tên hiển thị</th>
                 <th>Học kỳ</th>
-                <th>Bắt đầu (UTC)</th>
-                <th>Đóng nộp (UTC)</th>
+                <th>Bắt đầu</th>
+                <th>Đóng nộp</th>
                 <th>Chủ đề / Câu</th>
                 <th>Bài nộp</th>
                 <th>Trạng thái (ước lượng)</th>
@@ -279,8 +280,8 @@ export function ExamSessionsPage() {
                       <span className="ag-table__strong">{row.title}</span>
                     </td>
                     <td>{row.semesterCode}</td>
-                    <td className="ag-table__muted">{new Date(row.startsAtUtc).toLocaleString("vi-VN")}</td>
-                    <td className="ag-table__muted">{new Date(row.endsAtUtc).toLocaleString("vi-VN")}</td>
+                    <td className="ag-table__muted">{formatDateTime(row.startsAtUtc)}</td>
+                    <td className="ag-table__muted">{formatDateTime(row.endsAtUtc)}</td>
                     <td>
                       {row.topicCount} / {row.questionCount}
                     </td>

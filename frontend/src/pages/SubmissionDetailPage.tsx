@@ -12,6 +12,7 @@ import {
   workflowToQPair,
 } from "../lib/gradingUi";
 import { examSessionDetailPath, examSessionSubmissionsPath } from "../lib/workflowRoutes";
+import { formatDateTime } from "../lib/format";
 
 function outcomeToUi(outcome: string): "pass" | "fail" | "pending" | "error" {
   const o = (outcome || "").toLowerCase();
@@ -170,7 +171,7 @@ export function SubmissionDetailPage() {
           <p className="ag-detail-head__meta">
             Ca thi <span className="ag-table__strong">{detail.examSessionCode}</span> · Trạng thái chấm:{" "}
             <span className="ag-table__strong">{workflowStatusLabel(detail.status)}</span> · Nộp lúc{" "}
-            {new Date(detail.submittedAtUtc).toLocaleString("vi-VN")} ·{" "}
+            {formatDateTime(detail.submittedAtUtc)} ·{" "}
             <Link to={sessionHref} className="ag-linkbtn">
               Xem đề và cấu hình ca
             </Link>{" "}

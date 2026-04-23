@@ -88,6 +88,10 @@ Thumbs.db
 *.temp
 *~
 
+# Local .NET CLI / SDK caches created during local builds
+.dotnet/
+.dotnet-cli/
+
 # =============================================================================
 # User secrets & sensitive config
 # =============================================================================

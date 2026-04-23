@@ -1,8 +1,8 @@
+using MediatR;
 using Microsoft.AspNetCore.Mvc;
-using PRN232_G9_AutoGradingTool.Application.Common.Enums;
+using PRN232_G9_AutoGradingTool.Application.Common.DTOs.ExamGrading;
 using PRN232_G9_AutoGradingTool.Application.Common.Extensions;
-using PRN232_G9_AutoGradingTool.Application.Common.Interfaces;
-using PRN232_G9_AutoGradingTool.Application.Common.Models;
+using PRN232_G9_AutoGradingTool.Application.Features.Submissions.Commands.BatchSubmitZips;
 using Swashbuckle.AspNetCore.Annotations;
 
 namespace PRN232_G9_AutoGradingTool.API.Controllers.Student;
@@ -13,42 +13,28 @@ namespace PRN232_G9_AutoGradingTool.API.Controllers.Student;
 [ApiExplorerSettings(GroupName = "v1")]
 public class StudentGradingController : ControllerBase
 {
-    private readonly IExamGradingAppService _grading;
+    private readonly IMediator _mediator;
 
-    public StudentGradingController(IExamGradingAppService grading)
+    public StudentGradingController(IMediator mediator)
     {
-        _grading = grading;
+        _mediator = mediator;
     }
 
-    [HttpPost("submissions")]
+    [HttpPost("exam-sessions/{sessionId:guid}/submissions/batch")]
     [Consumes("multipart/form-data")]
     [SwaggerOperation(
-        Summary = "[SV] Nộp 2 zip Q1/Q2 — lưu storage qua FileServiceFactory",
-        Description = "Chỉ chấp nhận trong khung giờ ca thi (UTC): StartsAtUtc ≤ now ≤ EndsAtUtc.",
-        OperationId = "Student_SubmitZipSubmission")]
-    [ProducesResponseType(typeof(Result<Guid>), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(Result<object>), StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> SubmitSubmission(
-        [FromForm] Guid examSessionId,
-        [FromForm] string studentCode,
-        [FromForm] string? studentName,
-        [FromForm] Guid? examSessionClassId,
-        IFormFile q1Zip,
-        IFormFile q2Zip,
+        Summary = "[SV] Nộp batch tối đa 50 SV — mỗi SV 2 zip Q1+Q2",
+        Description = "Checks StartsAtUtc <= now <= EndsAtUtc. Max 50 students per request. Each entry must include ExamTopicId so files are stored under the correct topic path.",
+        OperationId = "Student_BatchSubmitZips")]
+    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(object), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> BatchSubmitZips(
+        [FromRoute] Guid sessionId,
+        [FromForm] BatchSubmitZipsRequest request,
         CancellationToken cancellationToken)
     {
-        if (q1Zip == null || q2Zip == null || q1Zip.Length == 0 || q2Zip.Length == 0)
-            return BadRequest(Result<Guid>.Failure("Thiếu file zip.", ErrorCodeEnum.ValidationFailed));
-
-        var r = await _grading.CreateSubmissionWithZipAsync(
-            examSessionId,
-            studentCode,
-            studentName,
-            q1Zip,
-            q2Zip,
-            bypassExamWindow: false,
-            examSessionClassId,
-            cancellationToken);
-        return StatusCode(r.GetHttpStatusCode(), r);
+        var command = new BatchSubmitZipsCommand(sessionId, request, BypassExamWindow: false);
+        var result = await _mediator.Send(command, cancellationToken);
+        return StatusCode(result.GetHttpStatusCode(), result);
     }
 }
