@@ -1,8 +1,8 @@
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
-import { listExamSessions, listSubmissions } from "../api/gradingApi";
-import type { ExamSessionListItem, ExamSubmissionListItem } from "../api/gradingTypes";
+import { listExamSessionClasses, listExamSessions, listSubmissions } from "../api/gradingApi";
+import type { ExamSessionClassListItem, ExamSessionListItem, ExamSubmissionListItem } from "../api/gradingTypes";
 import { WorkflowBreadcrumb, crumbsForSubmissions } from "../components/WorkflowBreadcrumb";
 import { examSessionDetailPath, examSessionSubmissionsPath, examSessionUploadPath } from "../lib/workflowRoutes";
 import { StatusBadge } from "../components/StatusBadge";
@@ -23,6 +23,9 @@ export function SubmissionsListPage() {
   const [loading, setLoading] = useState(true);
   const [sessionsLoading, setSessionsLoading] = useState(true);
   const [sessionsErr, setSessionsErr] = useState<string | null>(null);
+  /** Rỗng = tất cả lớp; khớp query `examSessionClassId` trên API */
+  const [classFilter, setClassFilter] = useState("");
+  const [sessionClasses, setSessionClasses] = useState<ExamSessionClassListItem[]>([]);
 
   useEffect(() => {
     if (querySessionId && !routeSessionId) {
@@ -61,6 +64,28 @@ export function SubmissionsListPage() {
   }, [routeSessionId]);
 
   useEffect(() => {
+    if (!sessionId || !routeSessionId) {
+      setSessionClasses([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const r = await listExamSessionClasses(token, sessionId);
+      if (cancelled) return;
+      if (r.isSuccess && r.data) {
+        setSessionClasses(r.data);
+        setClassFilter((prev) => (prev && r.data!.some((c) => c.id === prev) ? prev : ""));
+      } else {
+        setSessionClasses([]);
+        setClassFilter("");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [token, sessionId, routeSessionId]);
+
+  useEffect(() => {
     if (!sessionId) {
       setRows([]);
       setLoading(false);
@@ -78,7 +103,11 @@ export function SubmissionsListPage() {
     (async () => {
       setLoading(true);
       setErr(null);
-      const r = await listSubmissions(token, sessionId);
+      const r = await listSubmissions(
+        token,
+        sessionId,
+        classFilter ? classFilter : null
+      );
       if (cancelled) return;
       if (!r.isSuccess || !r.data) setErr(r.message ?? "Không tải được bài nộp");
       else setRows(r.data);
@@ -87,7 +116,7 @@ export function SubmissionsListPage() {
     return () => {
       cancelled = true;
     };
-  }, [token, sessionId, sessions, sessionsLoading]);
+  }, [token, sessionId, sessions, sessionsLoading, classFilter]);
 
   const sessionMeta = sessions.find((s) => s.id === sessionId);
   const sessionCode = sessionMeta?.code ?? "—";
@@ -119,22 +148,45 @@ export function SubmissionsListPage() {
               : `Bài nộp của ca ${sessionCode}`}
           </p>
           {!isHub && sessions.length > 0 ? (
-            <div className="ag-field" style={{ marginTop: 8, maxWidth: 420 }}>
-              <label className="ag-label" htmlFor="jump-session-sub">
-                Đổi nhanh ca thi
-              </label>
-              <select
-                id="jump-session-sub"
-                className="ag-input"
-                value={sessionId}
-                onChange={(e) => navigate(examSessionSubmissionsPath(e.target.value))}
-              >
-                {sessions.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.code} — {s.title}
-                  </option>
-                ))}
-              </select>
+            <div className="ag-stack ag-stack--sm" style={{ marginTop: 8, maxWidth: 480 }}>
+              <div className="ag-field" style={{ margin: 0 }}>
+                <label className="ag-label" htmlFor="jump-session-sub">
+                  Đổi nhanh ca thi
+                </label>
+                <select
+                  id="jump-session-sub"
+                  className="ag-input"
+                  value={sessionId}
+                  onChange={(e) => navigate(examSessionSubmissionsPath(e.target.value))}
+                >
+                  {sessions.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.code} — {s.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {sessionClasses.length > 0 ? (
+                <div className="ag-field" style={{ margin: 0 }}>
+                  <label className="ag-label" htmlFor="filter-class-sub">
+                    Lọc theo lớp gắn ca (API: examSessionClassId)
+                  </label>
+                  <select
+                    id="filter-class-sub"
+                    className="ag-input"
+                    value={classFilter}
+                    onChange={(e) => setClassFilter(e.target.value)}
+                  >
+                    <option value="">Tất cả lớp</option>
+                    {sessionClasses.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.examClassCode} — {c.examClassName} ({c.readySubmissionCount}/{c.expectedStudentCount} bài
+                        sẵn sàng)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
             </div>
           ) : null}
         </div>
@@ -205,6 +257,7 @@ export function SubmissionsListPage() {
                 <tr>
                   <th>MSSV</th>
                   <th>Họ tên</th>
+                  <th>Lớp</th>
                   <th>Ca thi</th>
                   <th>Thời điểm nộp</th>
                   <th>Câu 1</th>
@@ -216,13 +269,13 @@ export function SubmissionsListPage() {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={8} className="ag-table__muted">
+                    <td colSpan={9} className="ag-table__muted">
                       Đang tải…
                     </td>
                   </tr>
                 ) : rows.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="ag-table__muted">
+                    <td colSpan={9} className="ag-table__muted">
                       Chưa có bài nộp cho ca này — dùng nút «Nộp ZIP» hoặc cổng dành cho thí sinh (nếu được bật).
                     </td>
                   </tr>
@@ -236,6 +289,7 @@ export function SubmissionsListPage() {
                           <span className="ag-table__strong">{s.studentCode}</span>
                         </td>
                         <td className="ag-table__strong">{s.studentName ?? "—"}</td>
+                        <td className="ag-table__muted">{s.classCode ?? "—"}</td>
                         <td>
                           <span className="ag-table__strong">{sessionCode}</span>
                         </td>

@@ -3,7 +3,8 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { studentSubmitZip } from "../api/gradingCmsApi";
-import { createSubmissionZip, getExamSession } from "../api/gradingApi";
+import { createSubmissionZip, getExamSession, listExamSessionClasses } from "../api/gradingApi";
+import type { ExamSessionClassListItem } from "../api/gradingTypes";
 import { useApiMock } from "../config/env";
 import { WorkflowBreadcrumb, crumbsForUpload } from "../components/WorkflowBreadcrumb";
 import { examSessionDetailPath, examSessionSubmissionsPath } from "../lib/workflowRoutes";
@@ -28,6 +29,9 @@ export function UploadSubmissionsPage() {
   const [msg, setMsg] = useState<{ type: "ok" | "err" | "info"; text: string } | null>(null);
   const [lastOk, setLastOk] = useState<{ submissionId: string; sessionId: string } | null>(null);
   const [sending, setSending] = useState(false);
+  const [sessionClasses, setSessionClasses] = useState<ExamSessionClassListItem[]>([]);
+  /** Khi gắn bài với lớp trong ca (POST multipart `examSessionClassId`, optional) */
+  const [examSessionClassId, setExamSessionClassId] = useState("");
 
   useEffect(() => {
     if (!routeSessionId) {
@@ -48,6 +52,15 @@ export function UploadSubmissionsPage() {
       }
       setSessionCode(meta.data.code);
       setSessionTitle(meta.data.title);
+      const cls = await listExamSessionClasses(token, routeSessionId);
+      if (cancelled) return;
+      if (cls.isSuccess && cls.data) {
+        setSessionClasses(cls.data);
+        setExamSessionClassId("");
+      } else {
+        setSessionClasses([]);
+        setExamSessionClassId("");
+      }
     })();
     return () => {
       cancelled = true;
@@ -94,6 +107,7 @@ export function UploadSubmissionsPage() {
     fd.append("examSessionId", examSessionId);
     fd.append("studentCode", code);
     if (studentName.trim()) fd.append("studentName", studentName.trim());
+    if (examSessionClassId.trim()) fd.append("examSessionClassId", examSessionClassId.trim());
     fd.append("q1Zip", q1);
     fd.append("q2Zip", q2);
 
@@ -184,6 +198,27 @@ export function UploadSubmissionsPage() {
             </label>
           </div>
         </fieldset>
+        {sessionClasses.length > 0 ? (
+          <div className="ag-field" style={{ maxWidth: 640 }}>
+            <label className="ag-label" htmlFor="exam-session-class">
+              Lớp thi trong ca <span className="ag-table__muted">(không bắt buộc — gửi kèm examSessionClassId)</span>
+            </label>
+            <select
+              id="exam-session-class"
+              className="ag-input"
+              value={examSessionClassId}
+              onChange={(e) => setExamSessionClassId(e.target.value)}
+            >
+              <option value="">— Không chọn (không gắn lớp) —</option>
+              {sessionClasses.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.examClassCode} — {c.examClassName}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
+
         <div className="ag-upload-grid" style={{ marginTop: 8 }}>
           <div className="ag-field">
             <label className="ag-label" htmlFor="student-code">

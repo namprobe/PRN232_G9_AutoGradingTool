@@ -4,10 +4,10 @@ using PRN232_G9_AutoGradingTool.API.Attributes;
 using PRN232_G9_AutoGradingTool.Application.Common.DTOs.ExamGrading;
 using PRN232_G9_AutoGradingTool.Application.Common.Enums;
 using PRN232_G9_AutoGradingTool.Application.Common.Extensions;
-using PRN232_G9_AutoGradingTool.Application.Common.Interfaces;
 using PRN232_G9_AutoGradingTool.Application.Common.Models;
 using PRN232_G9_AutoGradingTool.Application.Features.ExamSessions.Commands.CreateExamSession;
 using PRN232_G9_AutoGradingTool.Application.Features.Submissions.Commands.BatchSubmitZips;
+using PRN232_G9_AutoGradingTool.Application.Features.ExamGrading;
 using PRN232_G9_AutoGradingTool.Domain.Enums;
 using Swashbuckle.AspNetCore.Annotations;
 
@@ -17,27 +17,24 @@ namespace PRN232_G9_AutoGradingTool.API.Controllers.Cms;
 [ApiController]
 [Route("api/cms/grading")]
 [ApiExplorerSettings(GroupName = "v1")]
+[AuthorizeRoles(nameof(RoleEnum.Instructor), nameof(RoleEnum.SystemAdmin))]
+[ProducesResponseType(typeof(Result<object>), StatusCodes.Status401Unauthorized)]
+[ProducesResponseType(typeof(Result<object>), StatusCodes.Status403Forbidden)]
 public class GradingController : ControllerBase
 {
-    private readonly IExamGradingAppService _grading;
-    private readonly IExamGradingAdminService _admin;
-    private readonly IExamGradingJobService _job;
     private readonly IMediator _mediator;
 
-    public GradingController(IExamGradingAppService grading, IExamGradingAdminService admin, IExamGradingJobService job, IMediator mediator)
+    public GradingController(IMediator mediator)
     {
-        _grading = grading;
-        _admin = admin;
-        _job = job;
         _mediator = mediator;
     }
 
     [HttpGet("semesters")]
     [SwaggerOperation(Summary = "Danh sách học kỳ", OperationId = "Grading_ListSemesters")]
-    [ProducesResponseType(typeof(Result<object>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Result<List<SemesterListItemDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> ListSemesters(CancellationToken cancellationToken)
     {
-        var r = await _grading.ListSemestersAsync(cancellationToken);
+        var r = await _mediator.Send(new EgListSemestersQuery(), cancellationToken);
         return StatusCode(r.GetHttpStatusCode(), r);
     }
 
@@ -46,7 +43,7 @@ public class GradingController : ControllerBase
     [ProducesResponseType(typeof(Result<SemesterListItemDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> CreateSemester([FromBody] CreateSemesterRequest body, CancellationToken cancellationToken)
     {
-        var r = await _admin.CreateSemesterAsync(body, cancellationToken);
+        var r = await _mediator.Send(new EgCreateSemesterCommand(body), cancellationToken);
         return StatusCode(r.GetHttpStatusCode(), r);
     }
 
@@ -55,7 +52,7 @@ public class GradingController : ControllerBase
     [ProducesResponseType(typeof(Result<SemesterListItemDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> UpdateSemester([FromRoute] Guid id, [FromBody] UpdateSemesterRequest body, CancellationToken cancellationToken)
     {
-        var r = await _admin.UpdateSemesterAsync(id, body, cancellationToken);
+        var r = await _mediator.Send(new EgUpdateSemesterCommand(id, body), cancellationToken);
         return StatusCode(r.GetHttpStatusCode(), r);
     }
 
@@ -64,16 +61,16 @@ public class GradingController : ControllerBase
     [ProducesResponseType(typeof(Result<bool>), StatusCodes.Status200OK)]
     public async Task<IActionResult> DeleteSemester([FromRoute] Guid id, CancellationToken cancellationToken)
     {
-        var r = await _admin.DeleteSemesterAsync(id, cancellationToken);
+        var r = await _mediator.Send(new EgDeleteSemesterCommand(id), cancellationToken);
         return StatusCode(r.GetHttpStatusCode(), r);
     }
 
     [HttpGet("exam-sessions")]
     [SwaggerOperation(Summary = "Danh sách ca thi", OperationId = "Grading_ListExamSessions")]
-    [ProducesResponseType(typeof(Result<object>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Result<List<ExamSessionListItemDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> ListExamSessions([FromQuery] Guid? semesterId, CancellationToken cancellationToken)
     {
-        var r = await _grading.ListExamSessionsAsync(semesterId, cancellationToken);
+        var r = await _mediator.Send(new EgListExamSessionsQuery(semesterId), cancellationToken);
         return StatusCode(r.GetHttpStatusCode(), r);
     }
 
@@ -102,7 +99,7 @@ public class GradingController : ControllerBase
     [ProducesResponseType(typeof(Result<ExamSessionListItemDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> UpdateExamSession([FromRoute] Guid id, [FromBody] UpdateExamSessionRequest body, CancellationToken cancellationToken)
     {
-        var r = await _admin.UpdateExamSessionAsync(id, body, cancellationToken);
+        var r = await _mediator.Send(new EgUpdateExamSessionCommand(id, body), cancellationToken);
         return StatusCode(r.GetHttpStatusCode(), r);
     }
 
@@ -111,7 +108,7 @@ public class GradingController : ControllerBase
     [ProducesResponseType(typeof(Result<bool>), StatusCodes.Status200OK)]
     public async Task<IActionResult> DeleteExamSession([FromRoute] Guid id, CancellationToken cancellationToken)
     {
-        var r = await _admin.DeleteExamSessionAsync(id, cancellationToken);
+        var r = await _mediator.Send(new EgDeleteExamSessionCommand(id), cancellationToken);
         return StatusCode(r.GetHttpStatusCode(), r);
     }
 
@@ -120,7 +117,7 @@ public class GradingController : ControllerBase
     [ProducesResponseType(typeof(Result<ExamTopicDetailDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> CreateTopic([FromRoute] Guid sessionId, [FromBody] CreateExamTopicRequest body, CancellationToken cancellationToken)
     {
-        var r = await _admin.CreateTopicAsync(sessionId, body, cancellationToken);
+        var r = await _mediator.Send(new EgCreateTopicCommand(sessionId, body), cancellationToken);
         return StatusCode(r.GetHttpStatusCode(), r);
     }
 
@@ -129,7 +126,7 @@ public class GradingController : ControllerBase
     [ProducesResponseType(typeof(Result<ExamTopicDetailDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> UpdateTopic([FromRoute] Guid topicId, [FromBody] UpdateExamTopicRequest body, CancellationToken cancellationToken)
     {
-        var r = await _admin.UpdateTopicAsync(topicId, body, cancellationToken);
+        var r = await _mediator.Send(new EgUpdateTopicCommand(topicId, body), cancellationToken);
         return StatusCode(r.GetHttpStatusCode(), r);
     }
 
@@ -138,7 +135,7 @@ public class GradingController : ControllerBase
     [ProducesResponseType(typeof(Result<bool>), StatusCodes.Status200OK)]
     public async Task<IActionResult> DeleteTopic([FromRoute] Guid topicId, CancellationToken cancellationToken)
     {
-        var r = await _admin.DeleteTopicAsync(topicId, cancellationToken);
+        var r = await _mediator.Send(new EgDeleteTopicCommand(topicId), cancellationToken);
         return StatusCode(r.GetHttpStatusCode(), r);
     }
 
@@ -147,7 +144,7 @@ public class GradingController : ControllerBase
     [ProducesResponseType(typeof(Result<ExamQuestionDetailDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> CreateQuestion([FromRoute] Guid topicId, [FromBody] CreateExamQuestionRequest body, CancellationToken cancellationToken)
     {
-        var r = await _admin.CreateQuestionAsync(topicId, body, cancellationToken);
+        var r = await _mediator.Send(new EgCreateQuestionCommand(topicId, body), cancellationToken);
         return StatusCode(r.GetHttpStatusCode(), r);
     }
 
@@ -156,7 +153,7 @@ public class GradingController : ControllerBase
     [ProducesResponseType(typeof(Result<ExamQuestionDetailDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> UpdateQuestion([FromRoute] Guid questionId, [FromBody] UpdateExamQuestionRequest body, CancellationToken cancellationToken)
     {
-        var r = await _admin.UpdateQuestionAsync(questionId, body, cancellationToken);
+        var r = await _mediator.Send(new EgUpdateQuestionCommand(questionId, body), cancellationToken);
         return StatusCode(r.GetHttpStatusCode(), r);
     }
 
@@ -165,7 +162,7 @@ public class GradingController : ControllerBase
     [ProducesResponseType(typeof(Result<bool>), StatusCodes.Status200OK)]
     public async Task<IActionResult> DeleteQuestion([FromRoute] Guid questionId, CancellationToken cancellationToken)
     {
-        var r = await _admin.DeleteQuestionAsync(questionId, cancellationToken);
+        var r = await _mediator.Send(new EgDeleteQuestionCommand(questionId), cancellationToken);
         return StatusCode(r.GetHttpStatusCode(), r);
     }
 
@@ -174,7 +171,7 @@ public class GradingController : ControllerBase
     [ProducesResponseType(typeof(Result<ExamTestCaseDetailDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> CreateTestCase([FromRoute] Guid questionId, [FromBody] CreateExamTestCaseRequest body, CancellationToken cancellationToken)
     {
-        var r = await _admin.CreateTestCaseAsync(questionId, body, cancellationToken);
+        var r = await _mediator.Send(new EgCreateTestCaseCommand(questionId, body), cancellationToken);
         return StatusCode(r.GetHttpStatusCode(), r);
     }
 
@@ -183,7 +180,7 @@ public class GradingController : ControllerBase
     [ProducesResponseType(typeof(Result<ExamTestCaseDetailDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> UpdateTestCase([FromRoute] Guid testCaseId, [FromBody] UpdateExamTestCaseRequest body, CancellationToken cancellationToken)
     {
-        var r = await _admin.UpdateTestCaseAsync(testCaseId, body, cancellationToken);
+        var r = await _mediator.Send(new EgUpdateTestCaseCommand(testCaseId, body), cancellationToken);
         return StatusCode(r.GetHttpStatusCode(), r);
     }
 
@@ -192,7 +189,7 @@ public class GradingController : ControllerBase
     [ProducesResponseType(typeof(Result<bool>), StatusCodes.Status200OK)]
     public async Task<IActionResult> DeleteTestCase([FromRoute] Guid testCaseId, CancellationToken cancellationToken)
     {
-        var r = await _admin.DeleteTestCaseAsync(testCaseId, cancellationToken);
+        var r = await _mediator.Send(new EgDeleteTestCaseCommand(testCaseId), cancellationToken);
         return StatusCode(r.GetHttpStatusCode(), r);
     }
 
@@ -201,7 +198,7 @@ public class GradingController : ControllerBase
     [ProducesResponseType(typeof(Result<List<ExamGradingPackListItemDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> ListGradingPacks([FromRoute] Guid sessionId, CancellationToken cancellationToken)
     {
-        var r = await _admin.ListGradingPacksAsync(sessionId, cancellationToken);
+        var r = await _mediator.Send(new EgListGradingPacksQuery(sessionId), cancellationToken);
         return StatusCode(r.GetHttpStatusCode(), r);
     }
 
@@ -210,7 +207,7 @@ public class GradingController : ControllerBase
     [ProducesResponseType(typeof(Result<ExamGradingPackListItemDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> CreateGradingPack([FromRoute] Guid sessionId, [FromBody] CreateGradingPackRequest body, CancellationToken cancellationToken)
     {
-        var r = await _admin.CreateGradingPackAsync(sessionId, body, cancellationToken);
+        var r = await _mediator.Send(new EgCreateGradingPackCommand(sessionId, body), cancellationToken);
         return StatusCode(r.GetHttpStatusCode(), r);
     }
 
@@ -219,7 +216,7 @@ public class GradingController : ControllerBase
     [ProducesResponseType(typeof(Result<ExamGradingPackListItemDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> UpdateGradingPack([FromRoute] Guid packId, [FromBody] UpdateGradingPackRequest body, CancellationToken cancellationToken)
     {
-        var r = await _admin.UpdateGradingPackAsync(packId, body, cancellationToken);
+        var r = await _mediator.Send(new EgUpdateGradingPackCommand(packId, body), cancellationToken);
         return StatusCode(r.GetHttpStatusCode(), r);
     }
 
@@ -228,7 +225,7 @@ public class GradingController : ControllerBase
     [ProducesResponseType(typeof(Result<bool>), StatusCodes.Status200OK)]
     public async Task<IActionResult> DeleteGradingPack([FromRoute] Guid packId, CancellationToken cancellationToken)
     {
-        var r = await _admin.DeleteGradingPackAsync(packId, cancellationToken);
+        var r = await _mediator.Send(new EgDeleteGradingPackCommand(packId), cancellationToken);
         return StatusCode(r.GetHttpStatusCode(), r);
     }
 
@@ -248,7 +245,7 @@ public class GradingController : ControllerBase
         if (file == null || file.Length == 0)
             return BadRequest(Result<ExamPackAssetListItemDto>.Failure("Thiếu file.", ErrorCodeEnum.ValidationFailed));
 
-        var r = await _admin.CreatePackAssetAsync(packId, (ExamPackAssetKind)kind, file, cancellationToken);
+        var r = await _mediator.Send(new EgCreatePackAssetCommand(packId, (ExamPackAssetKind)kind, file), cancellationToken);
         return StatusCode(r.GetHttpStatusCode(), r);
     }
 
@@ -257,40 +254,40 @@ public class GradingController : ControllerBase
     [ProducesResponseType(typeof(Result<bool>), StatusCodes.Status200OK)]
     public async Task<IActionResult> DeletePackAsset([FromRoute] Guid assetId, CancellationToken cancellationToken)
     {
-        var r = await _admin.DeletePackAssetAsync(assetId, cancellationToken);
+        var r = await _mediator.Send(new EgDeletePackAssetCommand(assetId), cancellationToken);
         return StatusCode(r.GetHttpStatusCode(), r);
     }
 
     [HttpGet("exam-sessions/{id:guid}")]
     [SwaggerOperation(Summary = "Chi tiết ca thi (topic / câu / testcase)", OperationId = "Grading_GetExamSession")]
-    [ProducesResponseType(typeof(Result<object>), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(Result<object>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(Result<ExamSessionDetailDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Result<ExamSessionDetailDto>), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetExamSession([FromRoute] Guid id, CancellationToken cancellationToken)
     {
-        var r = await _grading.GetExamSessionAsync(id, cancellationToken);
+        var r = await _mediator.Send(new EgGetExamSessionQuery(id), cancellationToken);
         return StatusCode(r.GetHttpStatusCode(), r);
     }
 
     [HttpGet("submissions")]
     [SwaggerOperation(Summary = "Danh sách bài nộp theo ca thi", OperationId = "Grading_ListSubmissions")]
-    [ProducesResponseType(typeof(Result<object>), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(Result<object>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(Result<List<ExamSubmissionListItemDto>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Result<List<ExamSubmissionListItemDto>>), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> ListSubmissions(
         [FromQuery] Guid examSessionId,
         [FromQuery] Guid? examSessionClassId,
         CancellationToken cancellationToken)
     {
-        var r = await _grading.ListSubmissionsAsync(examSessionId, examSessionClassId, cancellationToken);
+        var r = await _mediator.Send(new EgListSubmissionsQuery(examSessionId, examSessionClassId), cancellationToken);
         return StatusCode(r.GetHttpStatusCode(), r);
     }
 
     [HttpGet("submissions/{id:guid}")]
     [SwaggerOperation(Summary = "Chi tiết bài nộp + điểm câu + testcase", OperationId = "Grading_GetSubmission")]
-    [ProducesResponseType(typeof(Result<object>), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(Result<object>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(Result<ExamSubmissionDetailDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Result<ExamSubmissionDetailDto>), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetSubmission([FromRoute] Guid id, CancellationToken cancellationToken)
     {
-        var r = await _grading.GetSubmissionAsync(id, cancellationToken);
+        var r = await _mediator.Send(new EgGetSubmissionQuery(id), cancellationToken);
         return StatusCode(r.GetHttpStatusCode(), r);
     }
 
@@ -314,10 +311,10 @@ public class GradingController : ControllerBase
 
     [HttpGet("semesters/{semesterId:guid}/exam-classes")]
     [SwaggerOperation(Summary = "Danh sách lớp trong học kỳ", OperationId = "Grading_ListExamClasses")]
-    [ProducesResponseType(typeof(Result<object>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Result<List<ExamClassListItemDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> ListExamClasses([FromRoute] Guid semesterId, CancellationToken cancellationToken)
     {
-        var r = await _admin.ListExamClassesAsync(semesterId, cancellationToken);
+        var r = await _mediator.Send(new EgListExamClassesQuery(semesterId), cancellationToken);
         return StatusCode(r.GetHttpStatusCode(), r);
     }
 
@@ -329,7 +326,7 @@ public class GradingController : ControllerBase
         [FromBody] CreateExamClassRequest body,
         CancellationToken cancellationToken)
     {
-        var r = await _admin.CreateExamClassAsync(semesterId, body, cancellationToken);
+        var r = await _mediator.Send(new EgCreateExamClassCommand(semesterId, body), cancellationToken);
         return StatusCode(r.GetHttpStatusCode(), r);
     }
 
@@ -341,7 +338,7 @@ public class GradingController : ControllerBase
         [FromBody] UpdateExamClassRequest body,
         CancellationToken cancellationToken)
     {
-        var r = await _admin.UpdateExamClassAsync(id, body, cancellationToken);
+        var r = await _mediator.Send(new EgUpdateExamClassCommand(id, body), cancellationToken);
         return StatusCode(r.GetHttpStatusCode(), r);
     }
 
@@ -350,16 +347,16 @@ public class GradingController : ControllerBase
     [ProducesResponseType(typeof(Result<bool>), StatusCodes.Status200OK)]
     public async Task<IActionResult> DeleteExamClass([FromRoute] Guid id, CancellationToken cancellationToken)
     {
-        var r = await _admin.DeleteExamClassAsync(id, cancellationToken);
+        var r = await _mediator.Send(new EgDeleteExamClassCommand(id), cancellationToken);
         return StatusCode(r.GetHttpStatusCode(), r);
     }
 
     [HttpGet("exam-sessions/{sessionId:guid}/session-classes")]
     [SwaggerOperation(Summary = "Lớp tham gia ca thi + số bài Ready/Total", OperationId = "Grading_ListExamSessionClasses")]
-    [ProducesResponseType(typeof(Result<object>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Result<List<ExamSessionClassListItemDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> ListExamSessionClasses([FromRoute] Guid sessionId, CancellationToken cancellationToken)
     {
-        var r = await _admin.ListExamSessionClassesAsync(sessionId, cancellationToken);
+        var r = await _mediator.Send(new EgListExamSessionClassesQuery(sessionId), cancellationToken);
         return StatusCode(r.GetHttpStatusCode(), r);
     }
 
@@ -371,7 +368,7 @@ public class GradingController : ControllerBase
         [FromBody] CreateExamSessionClassRequest body,
         CancellationToken cancellationToken)
     {
-        var r = await _admin.CreateExamSessionClassAsync(sessionId, body, cancellationToken);
+        var r = await _mediator.Send(new EgCreateExamSessionClassCommand(sessionId, body), cancellationToken);
         return StatusCode(r.GetHttpStatusCode(), r);
     }
 
@@ -380,7 +377,7 @@ public class GradingController : ControllerBase
     [ProducesResponseType(typeof(Result<bool>), StatusCodes.Status200OK)]
     public async Task<IActionResult> DeleteExamSessionClass([FromRoute] Guid id, CancellationToken cancellationToken)
     {
-        var r = await _admin.DeleteExamSessionClassAsync(id, cancellationToken);
+        var r = await _mediator.Send(new EgDeleteExamSessionClassCommand(id), cancellationToken);
         return StatusCode(r.GetHttpStatusCode(), r);
     }
 
@@ -395,7 +392,9 @@ public class GradingController : ControllerBase
         [FromBody] StartClassBatchGradingRequest? body,
         CancellationToken cancellationToken)
     {
-        var r = await _job.StartClassBatchGradingAsync(id, body ?? new StartClassBatchGradingRequest(), cancellationToken);
+        var r = await _mediator.Send(
+            new EgStartClassBatchGradingCommand(id, body ?? new StartClassBatchGradingRequest()),
+            cancellationToken);
         return StatusCode(r.GetHttpStatusCode(), r);
     }
 
@@ -422,7 +421,7 @@ public class GradingController : ControllerBase
         if (zipFile == null || zipFile.Length == 0)
             return BadRequest(Result<bool>.Failure("Thiếu file zip.", ErrorCodeEnum.ValidationFailed));
 
-        var r = await _job.ReplaceSubmissionFileAsync(id, questionLabel, zipFile, cancellationToken);
+        var r = await _mediator.Send(new EgReplaceSubmissionFileCommand(id, questionLabel, zipFile), cancellationToken);
         return StatusCode(r.GetHttpStatusCode(), r);
     }
 
@@ -438,7 +437,7 @@ public class GradingController : ControllerBase
         [FromRoute] Guid id,
         CancellationToken cancellationToken)
     {
-        var r = await _job.TriggerRegradeAsync(id, cancellationToken);
+        var r = await _mediator.Send(new EgTriggerRegradeCommand(id), cancellationToken);
         return StatusCode(r.GetHttpStatusCode(), r);
     }
 }
