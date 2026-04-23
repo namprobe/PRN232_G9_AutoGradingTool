@@ -2,12 +2,31 @@ using System.Diagnostics;
 using System.IO.Compression;
 using System.Text.Json;
 using PRN232_G9_AutoGradingTool.Application.Common.DTOs.ExamGrading;
+using PRN232_G9_AutoGradingTool.Application.Common.Interfaces;
 
 namespace PRN232_G9_AutoGradingTool.Infrastructure.Services;
 
-public static class ZipExtractionHelper
+/// <summary>
+/// Implements the grading pipeline helper services for extraction, process execution,
+/// folder detection, and Newman result parsing.
+/// </summary>
+public sealed class ZipExtractionHelper : IGradingProcessService, IGradingResultParser
 {
-    public static string ExtractZip(string zipPath, string? workingDirectory = null)
+    /// <summary>
+    /// Extracts a submission zip file into a unique temporary folder while protecting
+    /// against zip-slip path traversal attacks.
+    /// <para>
+    /// The function validates the zip path, creates a dedicated extraction root, and
+    /// expands each archive entry only if the resolved destination stays inside the
+    /// intended extraction directory. Directory entries are created as folders, while
+    /// file entries are written to disk with overwrite enabled so repeated grading runs
+    /// can reuse the same helper safely.
+    /// </para>
+    /// </summary>
+    /// <param name="zipPath">Absolute or relative path to the zip archive that contains the student submission.</param>
+    /// <param name="workingDirectory">Optional base folder used to store extracted submissions. If omitted, a temp folder is created.</param>
+    /// <returns>The full path to the newly created extraction folder.</returns>
+    public string ExtractZip(string zipPath, string? workingDirectory = null)
     {
         if (string.IsNullOrWhiteSpace(zipPath))
             throw new ArgumentException("Zip path is required.", nameof(zipPath));
@@ -56,7 +75,19 @@ public static class ZipExtractionHelper
         return extractPath;
     }
 
-    public static (string? q1, string? q2) DetectProjects(string root)
+    /// <summary>
+    /// Detects the extracted Q1 and Q2 project folders by scanning the top-level
+    /// directories inside the submission root.
+    /// <para>
+    /// The function expects the archive to be extracted into a structure where project
+    /// folders are named with prefixes such as <c>Q1_</c> and <c>Q2_</c>. It returns
+    /// the first matching folder for each prefix, allowing the grading pipeline to
+    /// locate the two question projects without hard-coding exact folder names.
+    /// </para>
+    /// </summary>
+    /// <param name="root">Root directory that contains the extracted submission contents.</param>
+    /// <returns>A tuple containing the detected Q1 and Q2 folder paths, or null values when a folder is missing.</returns>
+    public (string? q1, string? q2) DetectProjects(string root)
     {
         if (string.IsNullOrWhiteSpace(root))
             throw new ArgumentException("Root path is required.", nameof(root));
@@ -75,7 +106,19 @@ public static class ZipExtractionHelper
         return (q1, q2);
     }
 
-    public static Process RunApp(string path, int port)
+    /// <summary>
+    /// Starts the student's published .NET application by locating the first runnable DLL
+    /// in the given folder and launching it through <c>dotnet</c> on the requested port.
+    /// <para>
+    /// The method verifies that the folder exists, ensures the port is valid, selects a
+    /// DLL that is not a resource assembly, and redirects stdout and stderr so the caller
+    /// can capture runtime logs during grading.
+    /// </para>
+    /// </summary>
+    /// <param name="path">Folder that contains the student's published application output.</param>
+    /// <param name="port">Local port used to expose the application for Newman requests.</param>
+    /// <returns>The started process handle for the student application.</returns>
+    public Process RunApp(string path, int port)
     {
         if (string.IsNullOrWhiteSpace(path))
             throw new ArgumentException("Path is required.", nameof(path));
@@ -104,7 +147,20 @@ public static class ZipExtractionHelper
         return process ?? throw new InvalidOperationException("Failed to start the student app process.");
     }
 
-    public static Process RunNewman(string collectionJsonPath, string baseUrl, string? workingDirectory = null)
+    /// <summary>
+    /// Starts a Newman process that executes the generated Postman collection against the
+    /// student application base URL.
+    /// <para>
+    /// The helper validates the collection file, resolves a working directory, and starts
+    /// Newman with the JSON reporter enabled so the grading pipeline can later parse the
+    /// machine-readable execution results.
+    /// </para>
+    /// </summary>
+    /// <param name="collectionJsonPath">Path to the generated Postman collection JSON file.</param>
+    /// <param name="baseUrl">Base URL of the running student application.</param>
+    /// <param name="workingDirectory">Optional working directory used when starting Newman.</param>
+    /// <returns>The started Newman process handle.</returns>
+    public Process RunNewman(string collectionJsonPath, string baseUrl, string? workingDirectory = null)
     {
         if (string.IsNullOrWhiteSpace(collectionJsonPath))
             throw new ArgumentException("Collection path is required.", nameof(collectionJsonPath));
@@ -135,7 +191,19 @@ public static class ZipExtractionHelper
         return process ?? throw new InvalidOperationException("Failed to start the Newman process.");
     }
 
-    public static async Task<string> CaptureProcessOutputAsync(Process process, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Reads stdout and stderr from a running process and returns the most useful
+    /// available text after the process exits.
+    /// <para>
+    /// The method waits for completion, then prefers standard output when present and
+    /// falls back to standard error when output is empty. This makes it suitable for
+    /// capturing Newman JSON output or diagnostic failure text from student app runs.
+    /// </para>
+    /// </summary>
+    /// <param name="process">The process whose output should be captured.</param>
+    /// <param name="cancellationToken">Token used to cancel waiting for process completion.</param>
+    /// <returns>The captured process output text, trimmed of surrounding whitespace.</returns>
+    public async Task<string> CaptureProcessOutputAsync(Process process, CancellationToken cancellationToken = default)
     {
         if (process == null)
             throw new ArgumentNullException(nameof(process));
@@ -154,7 +222,20 @@ public static class ZipExtractionHelper
         return standardError.Trim();
     }
 
-    public static IReadOnlyList<ResultDetail> ParseNewmanTestResults(string newmanJson)
+    /// <summary>
+    /// Parses the Newman JSON report and converts each execution item into a compact
+    /// result record used by the grading UI and persistence layer.
+    /// <para>
+    /// The parser walks through <c>run.executions</c>, extracts the item name, response
+    /// time, assertion outcomes, and failure messages, then maps each execution to a
+    /// <see cref="ResultDetail"/> with a pass/fail flag, per-test score, and raw JSON.
+    /// If assertions are missing, the execution is treated as passed, which matches the
+    /// current grading contract for tests that only validate request/response presence.
+    /// </para>
+    /// </summary>
+    /// <param name="newmanJson">The JSON text produced by Newman's JSON reporter.</param>
+    /// <returns>A read-only list of parsed test result details, one item per execution.</returns>
+    public IReadOnlyList<ResultDetail> ParseNewmanTestResults(string newmanJson)
     {
         if (string.IsNullOrWhiteSpace(newmanJson))
             throw new ArgumentException("Newman JSON is required.", nameof(newmanJson));
@@ -199,7 +280,17 @@ public static class ZipExtractionHelper
         return results;
     }
 
-    public static void CleanupResources(Process? process, string? tempDirectory)
+    /// <summary>
+    /// Attempts to stop any running grading process and delete its temporary working folder.
+    /// <para>
+    /// Cleanup is deliberately best-effort: the method swallows failures caused by already
+    /// exited processes or locked files so the grading flow can finish cleanly even when
+    /// the operating system has not released every handle yet.
+    /// </para>
+    /// </summary>
+    /// <param name="process">The process to terminate, if it is still running.</param>
+    /// <param name="tempDirectory">The temporary directory to delete after processing completes.</param>
+    public void CleanupResources(Process? process, string? tempDirectory)
     {
         if (process != null)
         {

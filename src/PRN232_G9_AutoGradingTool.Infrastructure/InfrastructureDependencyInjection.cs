@@ -142,18 +142,20 @@ public static class InfrastructureDependencyInjection
         services.AddScoped<IEmailService, EmailService>();
         services.AddScoped<INotificationFactory, NotificationFactory>();
         services.AddScoped<IFirebaseService, FirebaseService>();
-        
+
         // Register localization service
         services.AddScoped<ILocalizationService, LocalizationService>();
         services.AddScoped<IExamGradingAppService, ExamGradingAppService>();
         services.AddScoped<IExamGradingAdminService, ExamGradingAdminService>();
+        services.AddScoped<IGradingProcessService, ZipExtractionHelper>();
+        services.AddScoped<IGradingResultParser, ZipExtractionHelper>();
         // File storage services
         services.AddScoped<LocalFileService>(); // Local storage implementation
         // services.AddScoped<S3FileService>(); // Uncomment when S3 is implemented
         services.AddScoped<IFileServiceFactory, FileServiceFactory>(); // Register factory as scoped to resolve scoped services
 
         services.AddHostedService<InfrastructureStartupLoggingHostedService>();
-        
+
         return services;
     }
 }
