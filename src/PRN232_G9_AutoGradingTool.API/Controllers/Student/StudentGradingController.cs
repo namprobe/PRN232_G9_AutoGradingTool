@@ -1,8 +1,9 @@
+using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using PRN232_G9_AutoGradingTool.Application.Common.Enums;
 using PRN232_G9_AutoGradingTool.Application.Common.Extensions;
-using PRN232_G9_AutoGradingTool.Application.Common.Interfaces;
 using PRN232_G9_AutoGradingTool.Application.Common.Models;
+using PRN232_G9_AutoGradingTool.Application.Features.ExamGrading;
 using Swashbuckle.AspNetCore.Annotations;
 
 namespace PRN232_G9_AutoGradingTool.API.Controllers.Student;
@@ -13,11 +14,11 @@ namespace PRN232_G9_AutoGradingTool.API.Controllers.Student;
 [ApiExplorerSettings(GroupName = "v1")]
 public class StudentGradingController : ControllerBase
 {
-    private readonly IExamGradingAppService _grading;
+    private readonly IMediator _mediator;
 
-    public StudentGradingController(IExamGradingAppService grading)
+    public StudentGradingController(IMediator mediator)
     {
-        _grading = grading;
+        _mediator = mediator;
     }
 
     [HttpPost("submissions")]
@@ -40,14 +41,15 @@ public class StudentGradingController : ControllerBase
         if (q1Zip == null || q2Zip == null || q1Zip.Length == 0 || q2Zip.Length == 0)
             return BadRequest(Result<Guid>.Failure("Thiếu file zip.", ErrorCodeEnum.ValidationFailed));
 
-        var r = await _grading.CreateSubmissionWithZipAsync(
-            examSessionId,
-            studentCode,
-            studentName,
-            q1Zip,
-            q2Zip,
-            bypassExamWindow: false,
-            examSessionClassId,
+        var r = await _mediator.Send(
+            new EgCreateSubmissionCommand(
+                examSessionId,
+                studentCode,
+                studentName,
+                examSessionClassId,
+                q1Zip,
+                q2Zip,
+                BypassExamWindow: false),
             cancellationToken);
         return StatusCode(r.GetHttpStatusCode(), r);
     }

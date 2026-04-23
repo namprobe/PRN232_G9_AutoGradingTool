@@ -2,6 +2,8 @@ import { useApiMock } from "../config/env";
 import { apiFetch, baseUrl, fetchAsApiResult } from "./client";
 import type { ApiResult } from "./types";
 import type {
+  ExamClassListItem,
+  ExamSessionClassListItem,
   ExamSessionDetail,
   ExamSessionListItem,
   ExamSubmissionDetail,
@@ -16,6 +18,8 @@ import {
   getMockSemestersResult,
   mockGetExamSession,
   mockGetSubmission,
+  mockListExamClasses,
+  mockListExamSessionClasses,
   mockListSubmissions,
   mockReplaceSubmissionFile,
   mockTriggerRegrade,
@@ -53,16 +57,50 @@ export async function getExamSession(token: string | null, id: string): Promise<
   return apiFetch<ExamSessionDetail>(`/api/cms/grading/exam-sessions/${id}`, { method: "GET", token });
 }
 
+export async function listExamSessionClasses(
+  token: string | null,
+  sessionId: string
+): Promise<ApiResult<ExamSessionClassListItem[]>> {
+  if (useApiMock()) {
+    await maybeDelay();
+    return mockListExamSessionClasses(sessionId);
+  }
+  return apiFetch<ExamSessionClassListItem[]>(`/api/cms/grading/exam-sessions/${sessionId}/session-classes`, {
+    method: "GET",
+    token,
+  });
+}
+
+export async function listExamClasses(
+  token: string | null,
+  semesterId: string
+): Promise<ApiResult<ExamClassListItem[]>> {
+  if (useApiMock()) {
+    await maybeDelay();
+    return mockListExamClasses(semesterId);
+  }
+  return apiFetch<ExamClassListItem[]>(`/api/cms/grading/semesters/${semesterId}/exam-classes`, {
+    method: "GET",
+    token,
+  });
+}
+
 export async function listSubmissions(
   token: string | null,
-  examSessionId: string
+  examSessionId: string,
+  examSessionClassId?: string | null
 ): Promise<ApiResult<ExamSubmissionListItem[]>> {
   if (useApiMock()) {
     await maybeDelay();
-    return mockListSubmissions(examSessionId);
+    return mockListSubmissions(examSessionId, examSessionClassId);
   }
-  const q = `?examSessionId=${encodeURIComponent(examSessionId)}`;
-  return apiFetch<ExamSubmissionListItem[]>(`/api/cms/grading/submissions${q}`, { method: "GET", token });
+  const q = new URLSearchParams();
+  q.set("examSessionId", examSessionId);
+  if (examSessionClassId) q.set("examSessionClassId", examSessionClassId);
+  return apiFetch<ExamSubmissionListItem[]>(`/api/cms/grading/submissions?${q.toString()}`, {
+    method: "GET",
+    token,
+  });
 }
 
 export async function getSubmission(token: string | null, id: string): Promise<ApiResult<ExamSubmissionDetail>> {
