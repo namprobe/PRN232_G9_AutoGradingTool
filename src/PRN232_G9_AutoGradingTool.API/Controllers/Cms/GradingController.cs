@@ -5,6 +5,8 @@ using PRN232_G9_AutoGradingTool.Application.Common.DTOs.ExamGrading;
 using PRN232_G9_AutoGradingTool.Application.Common.Enums;
 using PRN232_G9_AutoGradingTool.Application.Common.Extensions;
 using PRN232_G9_AutoGradingTool.Application.Common.Models;
+using PRN232_G9_AutoGradingTool.Application.Features.ExamSessions.Commands.CreateExamSession;
+using PRN232_G9_AutoGradingTool.Application.Features.Submissions.Commands.BatchSubmitZips;
 using PRN232_G9_AutoGradingTool.Application.Features.ExamGrading;
 using PRN232_G9_AutoGradingTool.Domain.Enums;
 using Swashbuckle.AspNetCore.Annotations;
@@ -73,11 +75,22 @@ public class GradingController : ControllerBase
     }
 
     [HttpPost("exam-sessions")]
+    [AuthorizeRoles()]
     [SwaggerOperation(Summary = "Tạo ca thi", OperationId = "Grading_CreateExamSession")]
     [ProducesResponseType(typeof(Result<ExamSessionListItemDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Result<ExamSessionListItemDto>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(Result<ExamSessionListItemDto>), StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> CreateExamSession([FromBody] CreateExamSessionRequest body, CancellationToken cancellationToken)
     {
-        var r = await _mediator.Send(new EgCreateExamSessionCommand(body), cancellationToken);
+        var command = new CreateExamSessionCommand(
+            body.SemesterId,
+            body.Code,
+            body.Title,
+            body.StartsAtUtc,
+            body.ExamDurationMinutes,
+            body.EndsAtUtc,
+            body.DeferredClassGrading);
+        var r = await _mediator.Send(command, cancellationToken);
         return StatusCode(r.GetHttpStatusCode(), r);
     }
 
@@ -278,37 +291,22 @@ public class GradingController : ControllerBase
         return StatusCode(r.GetHttpStatusCode(), r);
     }
 
-    [HttpPost("submissions")]
+    [HttpPost("exam-sessions/{sessionId:guid}/submissions/batch")]
     [Consumes("multipart/form-data")]
     [SwaggerOperation(
-        Summary = "Nộp 2 file zip (Q1, Q2) — stub chấm ngay sau upload",
-        Description = "CMS bypass khung giờ ca thi (nộp hộ / xử lý muộn). Luồng SV dùng POST api/student/grading/submissions — có kiểm tra StartsAtUtc/EndsAtUtc.",
-        OperationId = "Grading_CreateSubmission")]
-    [ProducesResponseType(typeof(Result<Guid>), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(Result<object>), StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> CreateSubmission(
-        [FromForm] Guid examSessionId,
-        [FromForm] string studentCode,
-        [FromForm] string? studentName,
-        [FromForm] Guid? examSessionClassId,
-        IFormFile q1Zip,
-        IFormFile q2Zip,
+        Summary = "[CMS] Nộp batch tối đa 50 SV — bypass khung giờ ca thi",
+        Description = "CMS bypasses the exam window. Each entry must include ExamTopicId so files are stored under the correct topic path. Student flow uses POST api/student/grading/exam-sessions/{sessionId}/submissions/batch.",
+        OperationId = "Grading_BatchCreateSubmissions")]
+    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(object), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> BatchCreateSubmissions(
+        [FromRoute] Guid sessionId,
+        [FromForm] BatchSubmitZipsRequest request,
         CancellationToken cancellationToken)
     {
-        if (q1Zip == null || q2Zip == null || q1Zip.Length == 0 || q2Zip.Length == 0)
-            return BadRequest(Result<Guid>.Failure("Thiếu file zip.", ErrorCodeEnum.ValidationFailed));
-
-        var r = await _mediator.Send(
-            new EgCreateSubmissionCommand(
-                examSessionId,
-                studentCode,
-                studentName,
-                examSessionClassId,
-                q1Zip,
-                q2Zip,
-                BypassExamWindow: true),
-            cancellationToken);
-        return StatusCode(r.GetHttpStatusCode(), r);
+        var command = new BatchSubmitZipsCommand(sessionId, request, BypassExamWindow: true);
+        var result = await _mediator.Send(command, cancellationToken);
+        return StatusCode(result.GetHttpStatusCode(), result);
     }
 
     [HttpGet("semesters/{semesterId:guid}/exam-classes")]

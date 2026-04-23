@@ -4,13 +4,7 @@ import { useAuth } from "../auth/AuthContext";
 import { listSemesters } from "../api/gradingApi";
 import { cmsCreateSemester, cmsDeleteSemester, cmsUpdateSemester } from "../api/gradingCmsApi";
 import type { SemesterListItem } from "../api/gradingTypes";
-
-function toLocalInput(iso: string | null): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
+import { formatDateTime, localDateTimeToUTC, utcToLocalDateTimeInput } from "../lib/format";
 
 export function SemestersPage() {
   const { token } = useAuth();
@@ -51,8 +45,8 @@ export function SemestersPage() {
     return {
       code: form.code.trim(),
       name: form.name.trim(),
-      startDateUtc: form.startLocal ? new Date(form.startLocal).toISOString() : null,
-      endDateUtc: form.endLocal ? new Date(form.endLocal).toISOString() : null,
+      startDateUtc: form.startLocal ? localDateTimeToUTC(form.startLocal) : null,
+      endDateUtc: form.endLocal ? localDateTimeToUTC(form.endLocal) : null,
     };
   }
 
@@ -97,8 +91,8 @@ export function SemestersPage() {
     setForm({
       code: s.code,
       name: s.name,
-      startLocal: toLocalInput(s.startDateUtc),
-      endLocal: toLocalInput(s.endDateUtc),
+      startLocal: utcToLocalDateTimeInput(s.startDateUtc),
+      endLocal: utcToLocalDateTimeInput(s.endDateUtc),
     });
     setMsg(null);
   }
@@ -205,8 +199,8 @@ export function SemestersPage() {
               <tr>
                 <th>Mã</th>
                 <th>Tên</th>
-                <th>Bắt đầu (UTC)</th>
-                <th>Kết thúc (UTC)</th>
+                <th>Bắt đầu</th>
+                <th>Kết thúc</th>
                 <th />
               </tr>
             </thead>
@@ -230,12 +224,8 @@ export function SemestersPage() {
                       <span className="ag-table__strong">{s.code}</span>
                     </td>
                     <td className="ag-table__strong">{s.name}</td>
-                    <td className="ag-table__muted">
-                      {s.startDateUtc ? new Date(s.startDateUtc).toLocaleString("vi-VN") : "—"}
-                    </td>
-                    <td className="ag-table__muted">
-                      {s.endDateUtc ? new Date(s.endDateUtc).toLocaleString("vi-VN") : "—"}
-                    </td>
+                    <td className="ag-table__muted">{formatDateTime(s.startDateUtc)}</td>
+                    <td className="ag-table__muted">{formatDateTime(s.endDateUtc)}</td>
                     <td className="ag-table__actions">
                       <button type="button" className="ag-linkbtn" onClick={() => startEdit(s)}>
                         Sửa

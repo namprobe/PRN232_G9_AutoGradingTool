@@ -22,6 +22,8 @@ public record UpdateExamSessionRequest(
     DateTime EndsAtUtc,
     bool DeferredClassGrading = false);
 
+public record CreateExamSessionTopicRequest(string Title, int SortOrder);
+
 public record CreateExamTopicRequest(string Title, int SortOrder);
 
 public record UpdateExamTopicRequest(string Title, int SortOrder);

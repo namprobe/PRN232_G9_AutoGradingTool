@@ -147,8 +147,11 @@ public static class InfrastructureDependencyInjection
         services.AddScoped<ILocalizationService, LocalizationService>();
         services.AddScoped<IExamGradingAppService, ExamGradingAppService>();
         services.AddScoped<IExamGradingAdminService, ExamGradingAdminService>();
+        services.AddScoped<IExamGradingJobService, ExamGradingJobService>();
         services.AddScoped<IGradingProcessService, ZipExtractionHelper>();
         services.AddScoped<IGradingResultParser, ZipExtractionHelper>();
+        services.AddScoped<Jobs.GradeSubmissionJob>();
+        services.AddScoped<Jobs.SummarizeExamResultJob>();
         // File storage services
         services.AddScoped<LocalFileService>(); // Local storage implementation
         // services.AddScoped<S3FileService>(); // Uncomment when S3 is implemented

@@ -1,3 +1,4 @@
+using Hangfire;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -8,6 +9,7 @@ using PRN232_G9_AutoGradingTool.Application.Common.Models;
 using PRN232_G9_AutoGradingTool.Domain.Entities;
 using PRN232_G9_AutoGradingTool.Domain.Enums;
 using PRN232_G9_AutoGradingTool.Infrastructure.Context;
+using PRN232_G9_AutoGradingTool.Infrastructure.Jobs;
 
 namespace PRN232_G9_AutoGradingTool.Infrastructure.Services;
 
@@ -15,15 +17,18 @@ public class ExamGradingAdminService : IExamGradingAdminService
 {
     private readonly PRN232_G9_AutoGradingToolDbContext _db;
     private readonly IFileServiceFactory _fileServiceFactory;
+    private readonly IBackgroundJobClient _backgroundJobClient;
     private readonly ILogger<ExamGradingAdminService> _logger;
 
     public ExamGradingAdminService(
         PRN232_G9_AutoGradingToolDbContext db,
         IFileServiceFactory fileServiceFactory,
+        IBackgroundJobClient backgroundJobClient,
         ILogger<ExamGradingAdminService> logger)
     {
         _db = db;
         _fileServiceFactory = fileServiceFactory;
+        _backgroundJobClient = backgroundJobClient;
         _logger = logger;
     }
 
@@ -130,6 +135,14 @@ public class ExamGradingAdminService : IExamGradingAdminService
         _db.ExamSessions.Add(entity);
         await _db.SaveChangesAsync(cancellationToken);
 
+        // Schedule SummarizeExamResultJob to run at EndsAtUtc
+        var delay = entity.EndsAtUtc - DateTime.UtcNow;
+        if (delay < TimeSpan.Zero) delay = TimeSpan.Zero;
+        var scheduleJobId = _backgroundJobClient.Schedule<SummarizeExamResultJob>(
+            x => x.ExecuteAsync(entity.Id, CancellationToken.None), delay);
+        entity.HangfireScheduleJobId = scheduleJobId;
+        await _db.SaveChangesAsync(cancellationToken);
+
         var dto = await BuildExamSessionListItemAsync(entity.Id, cancellationToken);
         return Result<ExamSessionListItemDto>.Success(dto, "Đã tạo ca thi.");
     }
@@ -154,6 +167,8 @@ public class ExamGradingAdminService : IExamGradingAdminService
         if (await _db.ExamSessions.AnyAsync(x => x.SemesterId == req.SemesterId && x.Code == code && x.Id != id, cancellationToken))
             return Result<ExamSessionListItemDto>.Failure("Mã ca thi đã được dùng trong học kỳ.", ErrorCodeEnum.DuplicateEntry);
 
+        var endsAtChanged = entity.EndsAtUtc != req.EndsAtUtc;
+
         entity.SemesterId = req.SemesterId;
         entity.Code = code;
         entity.Title = title;
@@ -162,6 +177,19 @@ public class ExamGradingAdminService : IExamGradingAdminService
         entity.EndsAtUtc = req.EndsAtUtc;
         entity.DeferredClassGrading = req.DeferredClassGrading;
         entity.UpdatedAt = DateTime.UtcNow;
+
+        // Reschedule SummarizeExamResultJob if EndsAtUtc changed
+        if (endsAtChanged)
+        {
+            if (entity.HangfireScheduleJobId is not null)
+                BackgroundJob.Delete(entity.HangfireScheduleJobId);
+
+            var delay = entity.EndsAtUtc - DateTime.UtcNow;
+            if (delay < TimeSpan.Zero) delay = TimeSpan.Zero;
+            entity.HangfireScheduleJobId = _backgroundJobClient.Schedule<SummarizeExamResultJob>(
+                x => x.ExecuteAsync(entity.Id, CancellationToken.None), delay);
+        }
+
         await _db.SaveChangesAsync(cancellationToken);
 
         var dto = await BuildExamSessionListItemAsync(entity.Id, cancellationToken);

@@ -31,6 +31,11 @@ public class ExamSession : BaseEntity
     /// </summary>
     public bool DeferredClassGrading { get; set; }
 
+    /// <summary> 
+    /// Hangfire string job ID của job schedule lên lịch trigger các job con chấm hàng loạt sau khi ca thi kết thúc.
+    /// </summary>
+    public string? HangfireScheduleJobId { get; set; }
+
     public ICollection<ExamTopic> Topics { get; set; } = new List<ExamTopic>();
     public ICollection<ExamSubmission> Submissions { get; set; } = new List<ExamSubmission>();
     public ICollection<ExamGradingPack> GradingPacks { get; set; } = new List<ExamGradingPack>();

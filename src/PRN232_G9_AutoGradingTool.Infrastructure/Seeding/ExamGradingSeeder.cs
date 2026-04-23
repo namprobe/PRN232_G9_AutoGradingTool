@@ -108,8 +108,8 @@ public static class ExamGradingSeeder
 
         var sampleFiles = new[]
         {
-            new ExamSubmissionFile { Id = Guid.NewGuid(), ExamSubmissionId = sampleSubId, QuestionLabel = "Q1", StorageRelativePath = "seed/demo-q1.zip", OriginalFileName = "demo-q1.zip", CreatedAt = now, Status = EntityStatusEnum.Active },
-            new ExamSubmissionFile { Id = Guid.NewGuid(), ExamSubmissionId = sampleSubId, QuestionLabel = "Q2", StorageRelativePath = "seed/demo-q2.zip", OriginalFileName = "demo-q2.zip", CreatedAt = now, Status = EntityStatusEnum.Active },
+            new ExamSubmissionFile { Id = Guid.NewGuid(), ExamSubmissionId = sampleSubId, QuestionLabel = "Q1", StorageRelativePath = $"uploads/{session.Code}/{topicId:N}/HE186501_BÃ i máº«u (seed)/Q1/solution.zip", OriginalFileName = "demo-q1.zip", CreatedAt = now, Status = EntityStatusEnum.Active },
+            new ExamSubmissionFile { Id = Guid.NewGuid(), ExamSubmissionId = sampleSubId, QuestionLabel = "Q2", StorageRelativePath = $"uploads/{session.Code}/{topicId:N}/HE186501_BÃ i máº«u (seed)/Q2/solution.zip", OriginalFileName = "demo-q2.zip", CreatedAt = now, Status = EntityStatusEnum.Active },
         };
 
         db.Semesters.Add(semester);
