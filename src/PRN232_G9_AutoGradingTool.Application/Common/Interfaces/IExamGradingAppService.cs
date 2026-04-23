@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Http;
 using PRN232_G9_AutoGradingTool.Application.Common.DTOs.ExamGrading;
 using PRN232_G9_AutoGradingTool.Application.Common.Models;
 
@@ -18,4 +19,8 @@ public interface IExamGradingAppService
         CancellationToken cancellationToken = default);
 
     Task<Result<ExamSubmissionDetailDto>> GetSubmissionAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<Result<Guid>> CreateSubmissionWithZipAsync(Guid examSessionId, string studentCode, string? studentName, IFormFile q1Zip, IFormFile q2Zip, bool bypassExamWindow, Guid? examSessionClassId, CancellationToken cancellationToken);
+    Task<Result<StartClassBatchGradingResponseDto>> StartClassBatchGradingAsync(Guid id, StartClassBatchGradingRequest body, CancellationToken cancellationToken);
+    Task<Result<TriggerRegradeResponseDto>> TriggerRegradeAsync(Guid id, CancellationToken cancellationToken);
+    Task<Result<bool>> ReplaceSubmissionFileAsync(Guid id, string questionLabel, IFormFile zipFile, CancellationToken cancellationToken);
 }

@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using PRN232_G9_AutoGradingTool.Application.Common.DTOs.ExamGrading;
 using PRN232_G9_AutoGradingTool.Application.Common.Enums;
@@ -177,6 +178,26 @@ public class ExamGradingAppService : IExamGradingAppService
             resultDetails ?? new List<ResultDetail>());
 
         return Result<ExamSubmissionDetailDto>.Success(dto, "OK");
+    }
+
+    public Task<Result<Guid>> CreateSubmissionWithZipAsync(Guid examSessionId, string studentCode, string? studentName, IFormFile q1Zip, IFormFile q2Zip, bool bypassExamWindow, Guid? examSessionClassId, CancellationToken cancellationToken)
+    {
+        throw new NotImplementedException();
+    }
+
+    public Task<Result<StartClassBatchGradingResponseDto>> StartClassBatchGradingAsync(Guid id, StartClassBatchGradingRequest body, CancellationToken cancellationToken)
+    {
+        throw new NotImplementedException();
+    }
+
+    public Task<Result<TriggerRegradeResponseDto>> TriggerRegradeAsync(Guid id, CancellationToken cancellationToken)
+    {
+        throw new NotImplementedException();
+    }
+
+    public Task<Result<bool>> ReplaceSubmissionFileAsync(Guid id, string questionLabel, IFormFile zipFile, CancellationToken cancellationToken)
+    {
+        throw new NotImplementedException();
     }
 }
 
