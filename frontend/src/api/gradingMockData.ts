@@ -1,8 +1,10 @@
 import type { ApiResult } from "./types";
 import type {
+  ExamClassListItem,
   ExamGradingPackListItem,
   ExamPackAssetListItem,
   ExamQuestionDetail,
+  ExamSessionClassListItem,
   ExamSessionDetail,
   ExamSessionListItem,
   ExamSubmissionDetail,
@@ -18,6 +20,9 @@ export const DEMO_SEMESTER_ID = "b1000000-0000-4000-8000-000000000001";
 export const DEMO_EXAM_SESSION_ID = "b1000000-0000-4000-8000-000000000002";
 export const DEMO_SAMPLE_SUBMISSION_ID = "b1000000-0000-4000-8000-00000000feed";
 const MOCK_SUB2_ID = "b1000000-0000-4000-8000-00000000ab01";
+/** Lớp môn + bản ghi gắn lớp vào ca (mock UI lọc / nộp theo lớp) */
+export const DEMO_EXAM_CLASS_ID = "b1000000-0000-4000-8000-00000000c1a0";
+export const DEMO_EXAM_SESSION_CLASS_ID = "b1000000-0000-4000-8000-00000000s1a0";
 
 const topicId = "b1000000-0000-4000-8000-000000000003";
 const q1Id = "b1000000-0000-4000-8000-000000000011";
@@ -472,8 +477,8 @@ const sampleDetail: ExamSubmissionDetail = {
   id: DEMO_SAMPLE_SUBMISSION_ID,
   examSessionId: DEMO_EXAM_SESSION_ID,
   examSessionCode: "PRN232-DEMO-PE",
-  examSessionClassId: null,
-  classCode: null,
+  examSessionClassId: DEMO_EXAM_SESSION_CLASS_ID,
+  classCode: "SE1830",
   studentCode: "HE186501",
   studentName: "Bài mẫu (seed)",
   status: "Completed",
@@ -574,8 +579,8 @@ function initMockSubmissionStore() {
     {
       id: DEMO_SAMPLE_SUBMISSION_ID,
       examSessionId: DEMO_EXAM_SESSION_ID,
-      examSessionClassId: null,
-      classCode: null,
+      examSessionClassId: DEMO_EXAM_SESSION_CLASS_ID,
+      classCode: "SE1830",
       studentCode: "HE186501",
       studentName: "Bài mẫu (seed)",
       status: "Completed",
@@ -600,11 +605,47 @@ function initMockSubmissionStore() {
 
 initMockSubmissionStore();
 
-export function mockListSubmissions(examSessionId: string): ApiResult<ExamSubmissionListItem[]> {
+export function mockListExamSessionClasses(sessionId: string): ApiResult<ExamSessionClassListItem[]> {
+  if (sessionId.toLowerCase() !== DEMO_EXAM_SESSION_ID.toLowerCase()) return ok([]);
+  const row: ExamSessionClassListItem = {
+    id: DEMO_EXAM_SESSION_CLASS_ID,
+    examSessionId: DEMO_EXAM_SESSION_ID,
+    examClassId: DEMO_EXAM_CLASS_ID,
+    examClassCode: "SE1830",
+    examClassName: "SE1830 — PRN232",
+    expectedStudentCount: 30,
+    batchStatus: "Idle",
+    readySubmissionCount: 1,
+    totalSubmissionCount: 2,
+  };
+  return ok([row]);
+}
+
+export function mockListExamClasses(semesterId: string): ApiResult<ExamClassListItem[]> {
+  if (semesterId.toLowerCase() !== DEMO_SEMESTER_ID.toLowerCase()) return ok([]);
+  return ok([
+    {
+      id: DEMO_EXAM_CLASS_ID,
+      semesterId: DEMO_SEMESTER_ID,
+      code: "SE1830",
+      name: "SE1830 — PRN232",
+      maxStudents: 35,
+    },
+  ]);
+}
+
+export function mockListSubmissions(
+  examSessionId: string,
+  examSessionClassId?: string | null
+): ApiResult<ExamSubmissionListItem[]> {
   const exists = mockExamSessionRows.some((x) => x.id.toLowerCase() === examSessionId.toLowerCase());
   if (!exists) return fail("Không tìm thấy ca thi.");
   const key = examSessionId.toLowerCase();
-  const rows = mockSubmissionsBySession.get(key) ?? [];
+  let rows = mockSubmissionsBySession.get(key) ?? [];
+  if (examSessionClassId) {
+    const cid = examSessionClassId.toLowerCase();
+    rows = rows.filter((x) => (x.examSessionClassId ?? "").toLowerCase() === cid);
+  }
   return ok(rows.map((x) => ({ ...x })));
 }
 

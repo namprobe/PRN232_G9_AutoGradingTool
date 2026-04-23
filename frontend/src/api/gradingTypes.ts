@@ -45,6 +45,28 @@ export type ExamTopicDetail = {
   questions: ExamQuestionDetail[];
 };
 
+/** Khớp ExamClassListItemDto */
+export type ExamClassListItem = {
+  id: string;
+  semesterId: string;
+  code: string;
+  name: string;
+  maxStudents: number;
+};
+
+/** Khớp ExamSessionClassListItemDto */
+export type ExamSessionClassListItem = {
+  id: string;
+  examSessionId: string;
+  examClassId: string;
+  examClassCode: string;
+  examClassName: string;
+  expectedStudentCount: number;
+  batchStatus: string;
+  readySubmissionCount: number;
+  totalSubmissionCount: number;
+};
+
 export type ExamSessionDetail = {
   id: string;
   code: string;
