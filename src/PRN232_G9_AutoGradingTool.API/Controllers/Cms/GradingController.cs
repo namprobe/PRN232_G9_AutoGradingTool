@@ -16,6 +16,8 @@ namespace PRN232_G9_AutoGradingTool.API.Controllers.Cms;
 [Route("api/cms/grading")]
 [ApiExplorerSettings(GroupName = "v1")]
 [AuthorizeRoles(nameof(RoleEnum.Instructor), nameof(RoleEnum.SystemAdmin))]
+[ProducesResponseType(typeof(Result<object>), StatusCodes.Status401Unauthorized)]
+[ProducesResponseType(typeof(Result<object>), StatusCodes.Status403Forbidden)]
 public class GradingController : ControllerBase
 {
     private readonly IMediator _mediator;
@@ -27,7 +29,7 @@ public class GradingController : ControllerBase
 
     [HttpGet("semesters")]
     [SwaggerOperation(Summary = "Danh sách học kỳ", OperationId = "Grading_ListSemesters")]
-    [ProducesResponseType(typeof(Result<object>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Result<List<SemesterListItemDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> ListSemesters(CancellationToken cancellationToken)
     {
         var r = await _mediator.Send(new EgListSemestersQuery(), cancellationToken);
@@ -63,7 +65,7 @@ public class GradingController : ControllerBase
 
     [HttpGet("exam-sessions")]
     [SwaggerOperation(Summary = "Danh sách ca thi", OperationId = "Grading_ListExamSessions")]
-    [ProducesResponseType(typeof(Result<object>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Result<List<ExamSessionListItemDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> ListExamSessions([FromQuery] Guid? semesterId, CancellationToken cancellationToken)
     {
         var r = await _mediator.Send(new EgListExamSessionsQuery(semesterId), cancellationToken);
@@ -245,8 +247,8 @@ public class GradingController : ControllerBase
 
     [HttpGet("exam-sessions/{id:guid}")]
     [SwaggerOperation(Summary = "Chi tiết ca thi (topic / câu / testcase)", OperationId = "Grading_GetExamSession")]
-    [ProducesResponseType(typeof(Result<object>), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(Result<object>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(Result<ExamSessionDetailDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Result<ExamSessionDetailDto>), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetExamSession([FromRoute] Guid id, CancellationToken cancellationToken)
     {
         var r = await _mediator.Send(new EgGetExamSessionQuery(id), cancellationToken);
@@ -255,8 +257,8 @@ public class GradingController : ControllerBase
 
     [HttpGet("submissions")]
     [SwaggerOperation(Summary = "Danh sách bài nộp theo ca thi", OperationId = "Grading_ListSubmissions")]
-    [ProducesResponseType(typeof(Result<object>), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(Result<object>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(Result<List<ExamSubmissionListItemDto>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Result<List<ExamSubmissionListItemDto>>), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> ListSubmissions(
         [FromQuery] Guid examSessionId,
         [FromQuery] Guid? examSessionClassId,
@@ -268,8 +270,8 @@ public class GradingController : ControllerBase
 
     [HttpGet("submissions/{id:guid}")]
     [SwaggerOperation(Summary = "Chi tiết bài nộp + điểm câu + testcase", OperationId = "Grading_GetSubmission")]
-    [ProducesResponseType(typeof(Result<object>), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(Result<object>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(Result<ExamSubmissionDetailDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Result<ExamSubmissionDetailDto>), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetSubmission([FromRoute] Guid id, CancellationToken cancellationToken)
     {
         var r = await _mediator.Send(new EgGetSubmissionQuery(id), cancellationToken);
@@ -311,7 +313,7 @@ public class GradingController : ControllerBase
 
     [HttpGet("semesters/{semesterId:guid}/exam-classes")]
     [SwaggerOperation(Summary = "Danh sách lớp trong học kỳ", OperationId = "Grading_ListExamClasses")]
-    [ProducesResponseType(typeof(Result<object>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Result<List<ExamClassListItemDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> ListExamClasses([FromRoute] Guid semesterId, CancellationToken cancellationToken)
     {
         var r = await _mediator.Send(new EgListExamClassesQuery(semesterId), cancellationToken);
@@ -353,7 +355,7 @@ public class GradingController : ControllerBase
 
     [HttpGet("exam-sessions/{sessionId:guid}/session-classes")]
     [SwaggerOperation(Summary = "Lớp tham gia ca thi + số bài Ready/Total", OperationId = "Grading_ListExamSessionClasses")]
-    [ProducesResponseType(typeof(Result<object>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Result<List<ExamSessionClassListItemDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> ListExamSessionClasses([FromRoute] Guid sessionId, CancellationToken cancellationToken)
     {
         var r = await _mediator.Send(new EgListExamSessionClassesQuery(sessionId), cancellationToken);
