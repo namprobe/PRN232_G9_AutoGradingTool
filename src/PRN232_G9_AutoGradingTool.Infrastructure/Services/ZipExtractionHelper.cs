@@ -1,0 +1,273 @@
+using System.Diagnostics;
+using System.IO.Compression;
+using System.Text.Json;
+using PRN232_G9_AutoGradingTool.Application.Common.DTOs.ExamGrading;
+
+namespace PRN232_G9_AutoGradingTool.Infrastructure.Services;
+
+public static class ZipExtractionHelper
+{
+    public static string ExtractZip(string zipPath, string? workingDirectory = null)
+    {
+        if (string.IsNullOrWhiteSpace(zipPath))
+            throw new ArgumentException("Zip path is required.", nameof(zipPath));
+
+        if (!File.Exists(zipPath))
+            throw new FileNotFoundException("Zip file was not found.", zipPath);
+
+        var rootDirectory = string.IsNullOrWhiteSpace(workingDirectory)
+            ? Path.Combine(Path.GetTempPath(), "PRN232_G9_AutoGradingTool", "submissions")
+            : workingDirectory;
+
+        Directory.CreateDirectory(rootDirectory);
+
+        var extractPath = Path.Combine(rootDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(extractPath);
+
+        var normalizedExtractRoot = Path.GetFullPath(extractPath)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            + Path.DirectorySeparatorChar;
+
+        using var archive = ZipFile.OpenRead(zipPath);
+        foreach (var entry in archive.Entries)
+        {
+            if (string.IsNullOrEmpty(entry.FullName))
+                continue;
+
+            var destinationPath = Path.GetFullPath(Path.Combine(extractPath, entry.FullName));
+
+            // Prevent zip-slip path traversal when extracting student submissions.
+            if (!destinationPath.StartsWith(normalizedExtractRoot, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException($"Zip entry '{entry.FullName}' resolves outside the extraction folder.");
+
+            if (string.IsNullOrEmpty(entry.Name))
+            {
+                Directory.CreateDirectory(destinationPath);
+                continue;
+            }
+
+            var destinationDirectory = Path.GetDirectoryName(destinationPath);
+            if (!string.IsNullOrEmpty(destinationDirectory))
+                Directory.CreateDirectory(destinationDirectory);
+
+            entry.ExtractToFile(destinationPath, overwrite: true);
+        }
+
+        return extractPath;
+    }
+
+    public static (string? q1, string? q2) DetectProjects(string root)
+    {
+        if (string.IsNullOrWhiteSpace(root))
+            throw new ArgumentException("Root path is required.", nameof(root));
+
+        if (!Directory.Exists(root))
+            throw new DirectoryNotFoundException($"Root directory was not found: {root}");
+
+        var directories = Directory.GetDirectories(root);
+
+        var q1 = directories.FirstOrDefault(directory =>
+            Path.GetFileName(directory).StartsWith("Q1_", StringComparison.OrdinalIgnoreCase));
+
+        var q2 = directories.FirstOrDefault(directory =>
+            Path.GetFileName(directory).StartsWith("Q2_", StringComparison.OrdinalIgnoreCase));
+
+        return (q1, q2);
+    }
+
+    public static Process RunApp(string path, int port)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            throw new ArgumentException("Path is required.", nameof(path));
+
+        if (!Directory.Exists(path))
+            throw new DirectoryNotFoundException($"App folder was not found: {path}");
+
+        if (port <= 0)
+            throw new ArgumentOutOfRangeException(nameof(port), "Port must be greater than zero.");
+
+        var dll = Directory.GetFiles(path, "*.dll")
+            .FirstOrDefault(file => !Path.GetFileNameWithoutExtension(file).EndsWith(".resources", StringComparison.OrdinalIgnoreCase))
+            ?? throw new FileNotFoundException("No runnable DLL was found in the published folder.", path);
+
+        var process = Process.Start(new ProcessStartInfo
+        {
+            FileName = "dotnet",
+            Arguments = $"\"{dll}\" --urls=http://localhost:{port}",
+            WorkingDirectory = path,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true
+        });
+
+        return process ?? throw new InvalidOperationException("Failed to start the student app process.");
+    }
+
+    public static Process RunNewman(string collectionJsonPath, string baseUrl, string? workingDirectory = null)
+    {
+        if (string.IsNullOrWhiteSpace(collectionJsonPath))
+            throw new ArgumentException("Collection path is required.", nameof(collectionJsonPath));
+
+        if (!File.Exists(collectionJsonPath))
+            throw new FileNotFoundException("Collection JSON was not found.", collectionJsonPath);
+
+        if (string.IsNullOrWhiteSpace(baseUrl))
+            throw new ArgumentException("Base URL is required.", nameof(baseUrl));
+
+        var rootDirectory = string.IsNullOrWhiteSpace(workingDirectory)
+            ? Path.GetDirectoryName(collectionJsonPath) ?? Environment.CurrentDirectory
+            : workingDirectory;
+
+        Directory.CreateDirectory(rootDirectory);
+
+        var process = Process.Start(new ProcessStartInfo
+        {
+            FileName = "newman",
+            Arguments = $"run \"{collectionJsonPath}\" --reporters json --env-var baseUrl=\"{baseUrl}\"",
+            WorkingDirectory = rootDirectory,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true
+        });
+
+        return process ?? throw new InvalidOperationException("Failed to start the Newman process.");
+    }
+
+    public static async Task<string> CaptureProcessOutputAsync(Process process, CancellationToken cancellationToken = default)
+    {
+        if (process == null)
+            throw new ArgumentNullException(nameof(process));
+
+        var standardOutputTask = process.StandardOutput.ReadToEndAsync();
+        var standardErrorTask = process.StandardError.ReadToEndAsync();
+
+        await process.WaitForExitAsync(cancellationToken);
+
+        var standardOutput = await standardOutputTask;
+        var standardError = await standardErrorTask;
+
+        if (!string.IsNullOrWhiteSpace(standardOutput))
+            return standardOutput.Trim();
+
+        return standardError.Trim();
+    }
+
+    public static IReadOnlyList<ResultDetail> ParseNewmanTestResults(string newmanJson)
+    {
+        if (string.IsNullOrWhiteSpace(newmanJson))
+            throw new ArgumentException("Newman JSON is required.", nameof(newmanJson));
+
+        using var document = JsonDocument.Parse(newmanJson);
+        if (!document.RootElement.TryGetProperty("run", out var runElement) ||
+            !runElement.TryGetProperty("executions", out var executionsElement) ||
+            executionsElement.ValueKind != JsonValueKind.Array)
+        {
+            throw new InvalidDataException("Newman JSON report does not contain run.executions.");
+        }
+
+        var results = new List<ResultDetail>();
+        foreach (var execution in executionsElement.EnumerateArray())
+        {
+            var itemName = TryGetString(execution, "item", "name") ?? "Unknown testcase";
+            var responseTime = TryGetInt32(execution, "response", "responseTime");
+
+            var assertions = TryGetArray(execution, "assertions");
+            var assertionEntries = assertions?.EnumerateArray().ToList() ?? new List<JsonElement>();
+            var passed = assertionEntries.Count == 0 || assertionEntries.All(assertion =>
+                !assertion.TryGetProperty("success", out var successElement) || successElement.ValueKind == JsonValueKind.True);
+
+            var failures = assertionEntries
+                .Where(assertion => assertion.TryGetProperty("success", out var successElement) && successElement.ValueKind == JsonValueKind.False)
+                .Select(assertion => TryGetString(assertion, "error", "message")
+                    ?? TryGetString(assertion, "error", "name")
+                    ?? TryGetString(assertion, "assertion")
+                    ?? "Assertion failed")
+                .ToList();
+
+            var rawOutputJson = execution.GetRawText();
+            results.Add(new ResultDetail(
+                itemName,
+                passed,
+                passed ? 1d : 0d,
+                responseTime ?? 0,
+                failures.Count == 0 ? string.Empty : string.Join("; ", failures),
+                rawOutputJson));
+        }
+
+        return results;
+    }
+
+    public static void CleanupResources(Process? process, string? tempDirectory)
+    {
+        if (process != null)
+        {
+            try
+            {
+                if (!process.HasExited)
+                    process.Kill(entireProcessTree: true);
+
+                process.WaitForExit(5000);
+            }
+            catch
+            {
+                // Best-effort cleanup: the caller should not fail the grading flow because the process already exited.
+            }
+            finally
+            {
+                process.Dispose();
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(tempDirectory) && Directory.Exists(tempDirectory))
+        {
+            try
+            {
+                Directory.Delete(tempDirectory, recursive: true);
+            }
+            catch
+            {
+                // Best-effort cleanup: temporary grading folders should not block completion if files are locked.
+            }
+        }
+    }
+
+    private static string? TryGetString(JsonElement element, params string[] path)
+    {
+        var current = element;
+        foreach (var segment in path)
+        {
+            if (current.ValueKind != JsonValueKind.Object || !current.TryGetProperty(segment, out current))
+                return null;
+        }
+
+        return current.ValueKind == JsonValueKind.String ? current.GetString() : current.GetRawText();
+    }
+
+    private static int? TryGetInt32(JsonElement element, params string[] path)
+    {
+        var current = element;
+        foreach (var segment in path)
+        {
+            if (current.ValueKind != JsonValueKind.Object || !current.TryGetProperty(segment, out current))
+                return null;
+        }
+
+        return current.ValueKind == JsonValueKind.Number && current.TryGetInt32(out var value)
+            ? value
+            : null;
+    }
+
+    private static JsonElement? TryGetArray(JsonElement element, params string[] path)
+    {
+        var current = element;
+        foreach (var segment in path)
+        {
+            if (current.ValueKind != JsonValueKind.Object || !current.TryGetProperty(segment, out current))
+                return null;
+        }
+
+        return current.ValueKind == JsonValueKind.Array ? current : null;
+    }
+}

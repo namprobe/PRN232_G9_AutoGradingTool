@@ -138,7 +138,7 @@ public class ExamGradingAppService : IExamGradingAppService
             .Include(x => x.ExamSessionClass).ThenInclude(c => c!.ExamClass)
             .Include(x => x.SubmissionFiles)
             .Include(x => x.QuestionScores).ThenInclude(qs => qs.ExamQuestion)
-            .Include(x => x.TestCaseScores).ThenInclude(ts => ts.ExamTestCase).ThenInclude(tc => tc!.ExamQuestion)
+            .Include(x => x.Result).ThenInclude(r => r!.Details).ThenInclude(d => d.TestCase)
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
         if (sub == null)
@@ -149,16 +149,15 @@ public class ExamGradingAppService : IExamGradingAppService
             .Select(x => new ExamQuestionScoreDto(x.ExamQuestionId, x.ExamQuestion.Label, x.Score, x.MaxScore, x.Summary))
             .ToList();
 
-        var tcScores = sub.TestCaseScores
-            .OrderBy(x => x.ExamTestCase.ExamQuestion.Label).ThenBy(x => x.ExamTestCase.SortOrder)
-            .Select(x => new ExamTestCaseScoreDto(
-                x.ExamTestCaseId,
-                x.ExamTestCase.ExamQuestion.Label,
-                x.ExamTestCase.Name,
-                x.PointsEarned,
-                x.MaxPoints,
-                x.Outcome.ToString(),
-                x.Message))
+        var resultDetails = sub.Result?.Details
+            .OrderBy(x => x.TestCase.SortOrder)
+            .Select(x => new ResultDetail(
+                x.TestCase.Name,
+                x.Passed,
+                x.Score,
+                x.ResponseTime,
+                x.ErrorMessage,
+                null))
             .ToList();
 
         var files = sub.SubmissionFiles
@@ -179,7 +178,7 @@ public class ExamGradingAppService : IExamGradingAppService
             sub.TotalScore,
             files,
             qScores,
-            tcScores);
+            resultDetails ?? new List<ResultDetail>());
 
         return Result<ExamSubmissionDetailDto>.Success(dto, "OK");
     }
@@ -264,6 +263,16 @@ public class ExamGradingAppService : IExamGradingAppService
             StudentName = string.IsNullOrWhiteSpace(studentName) ? null : studentName.Trim(),
             WorkflowStatus = ExamSubmissionStatus.Pending,
             SubmittedAtUtc = DateTime.UtcNow,
+            CreatedAt = DateTime.UtcNow,
+            Status = EntityStatusEnum.Active
+        };
+
+        submission.Result = new TestResult
+        {
+            Id = Guid.NewGuid(),
+            SubmissionId = submission.Id,
+            TotalScore = 0,
+            TestStatus = ExamTestCaseOutcome.Pending,
             CreatedAt = DateTime.UtcNow,
             Status = EntityStatusEnum.Active
         };
@@ -386,7 +395,7 @@ public class ExamGradingAppService : IExamGradingAppService
         var submission = await _db.ExamSubmissions
             .Include(x => x.SubmissionFiles)
             .Include(x => x.QuestionScores)
-            .Include(x => x.TestCaseScores)
+            .Include(x => x.Result).ThenInclude(r => r!.Details)
             .FirstOrDefaultAsync(x => x.Id == submissionId, cancellationToken);
 
         if (submission == null)
@@ -418,9 +427,16 @@ public class ExamGradingAppService : IExamGradingAppService
         });
 
         _db.ExamQuestionScores.RemoveRange(submission.QuestionScores);
-        _db.ExamTestCaseScores.RemoveRange(submission.TestCaseScores);
+        if (submission.Result?.Details != null)
+            _db.TestResultDetails.RemoveRange(submission.Result.Details);
         submission.WorkflowStatus = ExamSubmissionStatus.Pending;
         submission.TotalScore = null;
+        if (submission.Result != null)
+        {
+            submission.Result.TotalScore = 0;
+            submission.Result.TestStatus = ExamTestCaseOutcome.Pending;
+            submission.Result.UpdatedAt = DateTime.UtcNow;
+        }
         submission.UpdatedAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync(cancellationToken);
@@ -623,7 +639,7 @@ public class ExamGradingAppService : IExamGradingAppService
     {
         var subs = await _db.ExamSubmissions
             .Include(s => s.QuestionScores)
-            .Include(s => s.TestCaseScores)
+            .Include(s => s.Result).ThenInclude(r => r!.Details)
             .Where(s => s.ExamSessionClassId == examSessionClassId)
             .ToListAsync(cancellationToken);
 
@@ -631,10 +647,17 @@ public class ExamGradingAppService : IExamGradingAppService
         foreach (var sub in subs)
         {
             _db.ExamQuestionScores.RemoveRange(sub.QuestionScores);
-            _db.ExamTestCaseScores.RemoveRange(sub.TestCaseScores);
+            if (sub.Result?.Details != null)
+                _db.TestResultDetails.RemoveRange(sub.Result.Details);
             sub.TotalScore = null;
             sub.WorkflowStatus = ExamSubmissionStatus.Pending;
             sub.UpdatedAt = now;
+            if (sub.Result != null)
+            {
+                sub.Result.TotalScore = 0;
+                sub.Result.TestStatus = ExamTestCaseOutcome.Pending;
+                sub.Result.UpdatedAt = now;
+            }
         }
 
         await _db.SaveChangesAsync(cancellationToken);
@@ -652,14 +675,24 @@ public class ExamGradingAppService : IExamGradingAppService
         var sub = await _db.ExamSubmissions
             .Include(x => x.ExamSession).ThenInclude(es => es.Topics).ThenInclude(t => t.Questions).ThenInclude(q => q.TestCases)
             .Include(x => x.QuestionScores)
-            .Include(x => x.TestCaseScores)
+            .Include(x => x.Result).ThenInclude(r => r!.Details)
             .FirstAsync(x => x.Id == submissionId, cancellationToken);
 
-        _db.ExamQuestionScores.RemoveRange(sub.QuestionScores);
-        _db.ExamTestCaseScores.RemoveRange(sub.TestCaseScores);
-
-        decimal total = 0;
+        var resultDetails = new List<TestResultDetail>();
         var now = DateTime.UtcNow;
+
+        if (sub.Result == null)
+        {
+            sub.Result = new TestResult
+            {
+                Id = Guid.NewGuid(),
+                SubmissionId = sub.Id,
+                TotalScore = 0,
+                TestStatus = ExamTestCaseOutcome.Pending,
+                CreatedAt = now,
+                Status = EntityStatusEnum.Active
+            };
+        }
 
         foreach (var topic in sub.ExamSession.Topics)
         {
@@ -672,20 +705,21 @@ public class ExamGradingAppService : IExamGradingAppService
                     if (earned > tc.MaxPoints)
                         earned = tc.MaxPoints;
                     qSum += earned;
-                    total += earned;
 
-                    _db.ExamTestCaseScores.Add(new ExamTestCaseScore
+                    var detail = new TestResultDetail
                     {
                         Id = Guid.NewGuid(),
-                        ExamSubmissionId = sub.Id,
-                        ExamTestCaseId = tc.Id,
-                        PointsEarned = earned,
-                        MaxPoints = tc.MaxPoints,
-                        Outcome = ExamTestCaseOutcome.Pass,
-                        Message = "Stub grader (demo PRN232)",
+                        ResultId = sub.Result.Id,
+                        TestCaseId = tc.Id,
+                        Passed = true,
+                        Score = (double)earned,
+                        ResponseTime = 0,
+                        ErrorMessage = "Stub grader (demo PRN232)",
                         CreatedAt = now,
                         Status = EntityStatusEnum.Active
-                    });
+                    };
+
+                    resultDetails.Add(detail);
                 }
 
                 var qMax = question.MaxScore;
@@ -706,13 +740,63 @@ public class ExamGradingAppService : IExamGradingAppService
             }
         }
 
+        var total = CalculateTotalScore(resultDetails);
         var sessionMax = sub.ExamSession.Topics.SelectMany(t => t.Questions).Sum(q => q.MaxScore);
         if (total > sessionMax)
             total = sessionMax;
 
-        sub.TotalScore = Math.Round(total, 2, MidpointRounding.AwayFromZero);
-        sub.WorkflowStatus = ExamSubmissionStatus.Completed;
-        sub.UpdatedAt = now;
+        await SaveGradingResultAsync(sub, resultDetails, total, now, cancellationToken);
+    }
+
+    private static decimal CalculateTotalScore(IEnumerable<TestResultDetail> details)
+    {
+        if (details == null)
+            return 0;
+
+        return details
+            .Where(detail => detail.Passed)
+            .Sum(detail => (decimal)detail.Score);
+    }
+
+    private async Task SaveGradingResultAsync(
+        ExamSubmission submission,
+        IReadOnlyList<TestResultDetail> resultDetails,
+        decimal totalScore,
+        DateTime now,
+        CancellationToken cancellationToken)
+    {
+        _db.ExamQuestionScores.RemoveRange(submission.QuestionScores);
+
+        if (submission.Result?.Details != null)
+            _db.TestResultDetails.RemoveRange(submission.Result.Details);
+
+        if (submission.Result == null)
+        {
+            submission.Result = new TestResult
+            {
+                Id = Guid.NewGuid(),
+                SubmissionId = submission.Id,
+                TotalScore = 0,
+                TestStatus = ExamTestCaseOutcome.Pending,
+                CreatedAt = now,
+                Status = EntityStatusEnum.Active
+            };
+            _db.TestResults.Add(submission.Result);
+        }
+
+        foreach (var detail in resultDetails)
+        {
+            _db.TestResultDetails.Add(detail);
+        }
+
+        submission.TotalScore = Math.Round(totalScore, 2, MidpointRounding.AwayFromZero);
+        submission.Result.TotalScore = (double)submission.TotalScore;
+        submission.Result.TestStatus = resultDetails.All(detail => detail.Passed)
+            ? ExamTestCaseOutcome.Pass
+            : ExamTestCaseOutcome.Fail;
+        submission.WorkflowStatus = ExamSubmissionStatus.Completed;
+        submission.UpdatedAt = now;
+        submission.Result.UpdatedAt = now;
 
         await _db.SaveChangesAsync(cancellationToken);
     }

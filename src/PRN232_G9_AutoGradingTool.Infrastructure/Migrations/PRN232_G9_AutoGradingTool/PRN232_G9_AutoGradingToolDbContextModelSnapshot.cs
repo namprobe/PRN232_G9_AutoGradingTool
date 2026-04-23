@@ -2377,6 +2377,8 @@ namespace PRN232_G9_AutoGradingTool.Infrastructure.Migrations.PRN232_G9_AutoGrad
             modelBuilder.Entity("PRN232_G9_AutoGradingTool.Domain.Entities.ExamClass", b =>
                 {
                     b.Navigation("SessionClasses");
+                });
+
             modelBuilder.Entity("PRN232_G9_AutoGradingTool.Domain.Entities.TestResult", b =>
                 {
                     b.HasOne("PRN232_G9_AutoGradingTool.Domain.Entities.ExamSubmission", "Submission")
