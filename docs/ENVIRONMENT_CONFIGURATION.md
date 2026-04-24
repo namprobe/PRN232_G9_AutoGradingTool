@@ -306,7 +306,7 @@ API_PORT=5000
 ConnectionStrings__DefaultConnection=Host=localhost;Port=5432;...
 Jwt__Key=your-secret-key
 Localization__SupportedCultures=en,vi
-Hangfire__Queues=notification-system,default
+Hangfire__Queues=notification-system,grading
 ```
 
 ---

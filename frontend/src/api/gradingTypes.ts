@@ -139,6 +139,19 @@ export type TriggerRegradeResponse = {
   message: string;
 };
 
+export type StudentSubmitResultItem = {
+  studentCode: string;
+  success: boolean;
+  submissionId: string | null;
+  error: string | null;
+};
+
+export type BatchSubmitZipsResponse = {
+  successCount: number;
+  failureCount: number;
+  results: StudentSubmitResultItem[];
+};
+
 /** —— CMS admin (JSON body khớp record C# camelCase) —— */
 
 export type CreateSemesterBody = {

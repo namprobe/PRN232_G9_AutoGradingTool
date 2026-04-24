@@ -189,7 +189,7 @@ FileStorage__Local__RootPath=uploads
 # =============================================
 Hangfire__UseOuterDatabase=true
 Hangfire__WorkerCount=2
-Hangfire__Queues=notification-system
+Hangfire__Queues=notification-system,grading
 
 # =============================================
 # CORS

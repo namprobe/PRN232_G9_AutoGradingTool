@@ -297,8 +297,8 @@ public class GradingController : ControllerBase
         Summary = "[CMS] Nộp batch tối đa 50 SV — bypass khung giờ ca thi",
         Description = "CMS bypasses the exam window. Each entry must include ExamTopicId so files are stored under the correct topic path. Student flow uses POST api/student/grading/exam-sessions/{sessionId}/submissions/batch.",
         OperationId = "Grading_BatchCreateSubmissions")]
-    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(object), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Result<BatchSubmitZipsResponseDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Result<BatchSubmitZipsResponseDto>), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> BatchCreateSubmissions(
         [FromRoute] Guid sessionId,
         [FromForm] BatchSubmitZipsRequest request,
