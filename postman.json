@@ -1,0 +1,645 @@
+{
+	"info": {
+		"_postman_id": "e83f2a87-0b1a-42c2-849c-851509a27e36",
+		"name": "AutoGrading Admin Full Workflow",
+		"description": "Full happy-path: Login → Create Semester → Create Session → Create Topic → Create Question → Create TestCase → Create GradingPack → Batch Submit → List Submissions → Get Detail → Regrade",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "1. Auth",
+			"item": [
+				{
+					"name": "Login Admin",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+									"pm.test('Response < 2s', function () { pm.expect(pm.response.responseTime).to.be.below(2000); });",
+									"const json = pm.response.json();",
+									"pm.test('isSuccess is true', function () { pm.expect(json.isSuccess).to.be.true; });",
+									"pm.test('accessToken exists', function () { pm.expect(json.data.accessToken).to.be.a('string'); });",
+									"pm.collectionVariables.set('admin_token', json.data.accessToken);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"url": {
+							"raw": "{{baseUrl}}/api/cms/auth/login",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "cms", "auth", "login"]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"{{admin_email}}\",\n  \"password\": \"{{admin_password}}\"\n}"
+						}
+					}
+				},
+				{
+					"name": "Get Profile",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+									"const json = pm.response.json();",
+									"pm.test('isSuccess is true', function () { pm.expect(json.isSuccess).to.be.true; });"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+						"url": {
+							"raw": "{{baseUrl}}/api/cms/auth/profile",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "cms", "auth", "profile"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "2. Semester",
+			"item": [
+				{
+					"name": "Create Semester",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"// Generate a unique run ID to avoid conflicts on re-runs",
+									"const runId = Date.now().toString(36).slice(-6);",
+									"pm.collectionVariables.set('run_id', runId);",
+									"pm.collectionVariables.set('sem_code', 'SEM_' + runId);",
+									"pm.collectionVariables.set('student_code', 'HE' + Date.now().toString().slice(-6));"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+									"pm.test('Response < 2s', function () { pm.expect(pm.response.responseTime).to.be.below(2000); });",
+									"const json = pm.response.json();",
+									"pm.test('isSuccess is true', function () { pm.expect(json.isSuccess).to.be.true; });",
+									"pm.test('data.id exists', function () { pm.expect(json.data.id).to.be.a('string'); });",
+									"pm.test('data.code matches', function () { pm.expect(json.data.code).to.eql(pm.collectionVariables.get('sem_code')); });",
+									"pm.collectionVariables.set('semester_id', json.data.id);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{admin_token}}" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/cms/grading/semesters",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "cms", "grading", "semesters"]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"code\": \"{{sem_code}}\",\n  \"name\": \"E2E Semester {{run_id}}\",\n  \"startDateUtc\": \"2026-01-01T00:00:00Z\",\n  \"endDateUtc\": \"2026-12-31T23:59:59Z\"\n}"
+						}
+					}
+				},
+				{
+					"name": "List Semesters",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+									"const json = pm.response.json();",
+									"pm.test('isSuccess is true', function () { pm.expect(json.isSuccess).to.be.true; });",
+									"pm.test('data is array', function () { pm.expect(json.data).to.be.an('array'); });"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+						"url": {
+							"raw": "{{baseUrl}}/api/cms/grading/semesters",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "cms", "grading", "semesters"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "3. Session",
+			"item": [
+				{
+					"name": "Create Exam Session",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"const now = new Date();",
+									"const start = new Date(now.getTime() - 10 * 60000);",
+									"const end = new Date(now.getTime() + 60 * 1000);",
+									"pm.collectionVariables.set('starts_at_utc', start.toISOString());",
+									"pm.collectionVariables.set('ends_at_utc', end.toISOString());",
+									"pm.collectionVariables.set('session_ends_epoch', end.getTime());",
+									"pm.collectionVariables.set('session_code', 'SES_' + pm.collectionVariables.get('run_id'));"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+									"pm.test('Response < 2s', function () { pm.expect(pm.response.responseTime).to.be.below(2000); });",
+									"const json = pm.response.json();",
+									"pm.test('isSuccess is true', function () { pm.expect(json.isSuccess).to.be.true; });",
+									"pm.test('data.id exists', function () { pm.expect(json.data.id).to.be.a('string'); });",
+									"pm.collectionVariables.set('session_id', json.data.id);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{admin_token}}" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/cms/grading/exam-sessions",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "cms", "grading", "exam-sessions"]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"semesterId\": \"{{semester_id}}\",\n  \"code\": \"{{session_code}}\",\n  \"title\": \"E2E Session {{run_id}}\",\n  \"startsAtUtc\": \"{{starts_at_utc}}\",\n  \"examDurationMinutes\": 1,\n  \"endsAtUtc\": \"{{ends_at_utc}}\",\n  \"deferredClassGrading\": false\n}"
+						}
+					}
+				},
+				{
+					"name": "List Exam Sessions",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+									"const json = pm.response.json();",
+									"pm.test('isSuccess is true', function () { pm.expect(json.isSuccess).to.be.true; });",
+									"pm.test('data is array', function () { pm.expect(json.data).to.be.an('array'); });"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+						"url": {
+							"raw": "{{baseUrl}}/api/cms/grading/exam-sessions?semesterId={{semester_id}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "cms", "grading", "exam-sessions"],
+							"query": [{ "key": "semesterId", "value": "{{semester_id}}" }]
+						}
+					}
+				},
+				{
+					"name": "Get Exam Session Detail",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+									"const json = pm.response.json();",
+									"pm.test('isSuccess is true', function () { pm.expect(json.isSuccess).to.be.true; });",
+									"pm.test('session id matches', function () { pm.expect(json.data.id).to.eql(pm.collectionVariables.get('session_id')); });"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+						"url": {
+							"raw": "{{baseUrl}}/api/cms/grading/exam-sessions/{{session_id}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "cms", "grading", "exam-sessions", "{{session_id}}"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "4. Topic + Question + TestCase",
+			"item": [
+				{
+					"name": "Create Topic",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+									"const json = pm.response.json();",
+									"pm.test('isSuccess is true', function () { pm.expect(json.isSuccess).to.be.true; });",
+									"pm.test('data.id exists', function () { pm.expect(json.data.id).to.be.a('string'); });",
+									"pm.test('title matches', function () { pm.expect(json.data.title).to.eql('Topic A'); });",
+									"pm.collectionVariables.set('topic_id', json.data.id);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{admin_token}}" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/cms/grading/exam-sessions/{{session_id}}/topics",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "cms", "grading", "exam-sessions", "{{session_id}}", "topics"]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"title\": \"Topic A\",\n  \"sortOrder\": 1\n}"
+						}
+					}
+				},
+				{
+					"name": "Create Question Q1",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+									"const json = pm.response.json();",
+									"pm.test('isSuccess is true', function () { pm.expect(json.isSuccess).to.be.true; });",
+									"pm.test('label is Q1', function () { pm.expect(json.data.label).to.eql('Q1'); });",
+									"pm.collectionVariables.set('question_q1_id', json.data.id);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{admin_token}}" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/cms/grading/exam-topics/{{topic_id}}/questions",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "cms", "grading", "exam-topics", "{{topic_id}}", "questions"]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"label\": \"Q1\",\n  \"title\": \"Question 1 - CRUD API\",\n  \"maxScore\": 5\n}"
+						}
+					}
+				},
+				{
+					"name": "Create Question Q2",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+									"const json = pm.response.json();",
+									"pm.test('isSuccess is true', function () { pm.expect(json.isSuccess).to.be.true; });",
+									"pm.test('label is Q2', function () { pm.expect(json.data.label).to.eql('Q2'); });",
+									"pm.collectionVariables.set('question_q2_id', json.data.id);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{admin_token}}" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/cms/grading/exam-topics/{{topic_id}}/questions",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "cms", "grading", "exam-topics", "{{topic_id}}", "questions"]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"label\": \"Q2\",\n  \"title\": \"Question 2 - Business Logic\",\n  \"maxScore\": 5\n}"
+						}
+					}
+				},
+				{
+					"name": "Create TestCase for Q1",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+									"const json = pm.response.json();",
+									"pm.test('isSuccess is true', function () { pm.expect(json.isSuccess).to.be.true; });",
+									"pm.test('data.id exists', function () { pm.expect(json.data.id).to.be.a('string'); });"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{admin_token}}" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/cms/grading/exam-questions/{{question_q1_id}}/test-cases",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "cms", "grading", "exam-questions", "{{question_q1_id}}", "test-cases"]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"GET /api/products returns 200\",\n  \"maxPoints\": 2.5,\n  \"sortOrder\": 1\n}"
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "5. Grading Pack",
+			"item": [
+				{
+					"name": "Create Grading Pack",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+									"const json = pm.response.json();",
+									"pm.test('isSuccess is true', function () { pm.expect(json.isSuccess).to.be.true; });",
+									"pm.test('pack is active', function () { pm.expect(json.data.isActive).to.be.true; });",
+									"pm.collectionVariables.set('grading_pack_id', json.data.id);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{admin_token}}" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/cms/grading/exam-sessions/{{session_id}}/grading-packs",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "cms", "grading", "exam-sessions", "{{session_id}}", "grading-packs"]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"label\": \"Pack v1\",\n  \"version\": null,\n  \"isActive\": true\n}"
+						}
+					}
+				},
+				{
+					"name": "List Grading Packs",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+									"const json = pm.response.json();",
+									"pm.test('isSuccess is true', function () { pm.expect(json.isSuccess).to.be.true; });",
+									"pm.test('data is array with items', function () { pm.expect(json.data).to.be.an('array').that.is.not.empty; });"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+						"url": {
+							"raw": "{{baseUrl}}/api/cms/grading/exam-sessions/{{session_id}}/grading-packs",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "cms", "grading", "exam-sessions", "{{session_id}}", "grading-packs"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "6. Student Batch Submit",
+			"item": [
+				{
+					"name": "Student Batch Submit Zips",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+									"pm.test('Response < 2s', function () { pm.expect(pm.response.responseTime).to.be.below(2000); });",
+									"const json = pm.response.json();",
+									"pm.test('isSuccess is true', function () { pm.expect(json.isSuccess).to.be.true; });",
+									"pm.test('successCount > 0', function () { pm.expect(json.data.successCount).to.be.above(0); });",
+									"pm.test('failureCount is 0', function () { pm.expect(json.data.failureCount).to.eql(0); });",
+									"pm.test('results array exists', function () { pm.expect(json.data.results).to.be.an('array').that.is.not.empty; });",
+									"pm.test('first result is success', function () { pm.expect(json.data.results[0].success).to.be.true; });",
+									"if (json.data && json.data.results && json.data.results[0].submissionId) {",
+									"    pm.collectionVariables.set('submission_id', json.data.results[0].submissionId);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/student/grading/exam-sessions/{{session_id}}/submissions/batch",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "student", "grading", "exam-sessions", "{{session_id}}", "submissions", "batch"]
+						},
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{ "key": "Entries[0].ExamTopicId", "value": "{{topic_id}}", "type": "text" },
+								{ "key": "Entries[0].StudentCode", "value": "{{student_code}}", "type": "text" },
+								{ "key": "Entries[0].StudentName", "value": "{{student_name}}", "type": "text" },
+								{ "key": "Entries[0].Q1Zip", "type": "file", "src": "solution.zip", "contentType": "application/zip" },
+								{ "key": "Entries[0].Q2Zip", "type": "file", "src": "solution.zip", "contentType": "application/zip" }
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "7. Wait for Session End + Query",
+			"item": [
+				{
+					"name": "List Submissions (after session ends)",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"// Wait until the exam session has ended (EndsAtUtc + small buffer)",
+									"const endsEpoch = parseInt(pm.collectionVariables.get('session_ends_epoch'), 10);",
+									"const now = Date.now();",
+									"const waitMs = Math.max(0, endsEpoch - now + 5000);",
+									"console.log('Waiting ' + (waitMs / 1000) + 's for session to end...');",
+									"if (waitMs > 0) {",
+									"    const start = Date.now();",
+									"    while (Date.now() - start < waitMs) { /* busy wait */ }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+									"const json = pm.response.json();",
+									"pm.test('isSuccess is true', function () { pm.expect(json.isSuccess).to.be.true; });",
+									"pm.test('data is array', function () { pm.expect(json.data).to.be.an('array').that.is.not.empty; });",
+									"pm.test('first item has studentCode', function () { pm.expect(json.data[0].studentCode).to.be.a('string'); });"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+						"url": {
+							"raw": "{{baseUrl}}/api/cms/grading/submissions?examSessionId={{session_id}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "cms", "grading", "submissions"],
+							"query": [{ "key": "examSessionId", "value": "{{session_id}}" }]
+						}
+					}
+				},
+				{
+					"name": "Get Submission Detail",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+									"const json = pm.response.json();",
+									"pm.test('isSuccess is true', function () { pm.expect(json.isSuccess).to.be.true; });",
+									"pm.test('id matches', function () { pm.expect(json.data.id).to.eql(pm.collectionVariables.get('submission_id')); });",
+									"pm.test('submissionFiles exist', function () { pm.expect(json.data.submissionFiles).to.be.an('array'); });",
+									"pm.test('studentCode matches', function () { pm.expect(json.data.studentCode).to.eql(pm.collectionVariables.get('student_code')); });"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+						"url": {
+							"raw": "{{baseUrl}}/api/cms/grading/submissions/{{submission_id}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "cms", "grading", "submissions", "{{submission_id}}"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "8. Regrade",
+			"item": [
+				{
+					"name": "Trigger Regrade",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+									"pm.test('Response < 2s', function () { pm.expect(pm.response.responseTime).to.be.below(2000); });",
+									"const json = pm.response.json();",
+									"pm.test('isSuccess is true', function () { pm.expect(json.isSuccess).to.be.true; });",
+									"pm.test('gradingJobId exists', function () { pm.expect(json.data.gradingJobId).to.be.a('string'); });",
+									"pm.collectionVariables.set('grading_job_id', json.data.gradingJobId);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+						"url": {
+							"raw": "{{baseUrl}}/api/cms/grading/submissions/{{submission_id}}/regrade",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "cms", "grading", "submissions", "{{submission_id}}", "regrade"]
+						}
+					}
+				}
+			]
+		}
+	],
+	"variable": [
+		{ "key": "baseUrl", "value": "http://localhost:5000", "type": "string" },
+		{ "key": "admin_email", "value": "admin@autogradingtool.com", "type": "string" },
+		{ "key": "admin_password", "value": "Admin@123", "type": "string" },
+		{ "key": "student_name", "value": "E2E Student", "type": "string" },
+		{ "key": "run_id", "value": "", "type": "string" },
+		{ "key": "sem_code", "value": "", "type": "string" },
+		{ "key": "session_code", "value": "", "type": "string" },
+		{ "key": "student_code", "value": "", "type": "string" },
+		{ "key": "admin_token", "value": "", "type": "string" },
+		{ "key": "semester_id", "value": "", "type": "string" },
+		{ "key": "session_id", "value": "", "type": "string" },
+		{ "key": "session_ends_epoch", "value": "", "type": "string" },
+		{ "key": "topic_id", "value": "", "type": "string" },
+		{ "key": "question_q1_id", "value": "", "type": "string" },
+		{ "key": "question_q2_id", "value": "", "type": "string" },
+		{ "key": "grading_pack_id", "value": "", "type": "string" },
+		{ "key": "submission_id", "value": "", "type": "string" },
+		{ "key": "grading_job_id", "value": "", "type": "string" }
+	]
+}

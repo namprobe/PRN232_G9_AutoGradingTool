@@ -13,6 +13,11 @@ public interface IGradingProcessService
   string ExtractZip(string zipPath, string? workingDirectory = null);
 
   /// <summary>
+  /// Resolves the published app folder for a specific question within the extracted directory.
+  /// </summary>
+  string ResolveAppFolder(string questionLabel, string extractedDir);
+
+  /// <summary>
   /// Start the student application on the requested local port.
   /// </summary>
   Process RunApp(string path, int port);

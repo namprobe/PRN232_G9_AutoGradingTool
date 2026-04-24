@@ -11,6 +11,7 @@ using PRN232_G9_AutoGradingTool.Domain.Entities;
 using PRN232_G9_AutoGradingTool.Domain.Enums;
 using PRN232_G9_AutoGradingTool.Infrastructure.Context;
 using PRN232_G9_AutoGradingTool.Infrastructure.Repositories;
+using PRN232_G9_AutoGradingTool.Application.Common.Enums;
 using Xunit;
 
 namespace PRN232_G9_AutoGradingTool.Infrastructure.Tests;
@@ -108,6 +109,127 @@ public class BatchSubmitZipsCommandHandlerTests
         Assert.Contains("ExamTopicId", row.Error, StringComparison.OrdinalIgnoreCase);
         Assert.Empty(await db.ExamSubmissions.ToListAsync());
         Assert.Empty(await db.ExamSubmissionFiles.ToListAsync());
+    }
+
+    [Fact]
+    public async Task Handle_ReturnsNotFound_WhenSessionDoesNotExist()
+    {
+        await using var db = CreateDbContext(nameof(Handle_ReturnsNotFound_WhenSessionDoesNotExist));
+        var handler = CreateHandler(db, out _);
+        
+        var command = new BatchSubmitZipsCommand(Guid.NewGuid(), new BatchSubmitZipsRequest { Entries = [] }, false);
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ErrorCodeEnum.NotFound.ToString(), result.ErrorCode);
+    }
+
+    [Fact]
+    public async Task Handle_ReturnsError_WhenExamNotStartedAndBypassIsFalse()
+    {
+        await using var db = CreateDbContext(nameof(Handle_ReturnsError_WhenExamNotStartedAndBypassIsFalse));
+        var session = CreateSession("SESSION-EARLY");
+        session.StartsAtUtc = DateTime.UtcNow.AddHours(1);
+        session.EndsAtUtc = DateTime.UtcNow.AddHours(2);
+        db.ExamSessions.Add(session);
+        await db.SaveChangesAsync();
+
+        var handler = CreateHandler(db, out _);
+        var command = new BatchSubmitZipsCommand(session.Id, new BatchSubmitZipsRequest { Entries = [] }, BypassExamWindow: false);
+        
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ErrorCodeEnum.BusinessRuleViolation.ToString(), result.ErrorCode);
+        Assert.Contains("chưa bắt đầu", result.Message);
+    }
+
+    [Fact]
+    public async Task Handle_ReturnsError_WhenExamEndedAndBypassIsFalse()
+    {
+        await using var db = CreateDbContext(nameof(Handle_ReturnsError_WhenExamEndedAndBypassIsFalse));
+        var session = CreateSession("SESSION-LATE");
+        session.StartsAtUtc = DateTime.UtcNow.AddHours(-2);
+        session.EndsAtUtc = DateTime.UtcNow.AddHours(-1);
+        db.ExamSessions.Add(session);
+        await db.SaveChangesAsync();
+
+        var handler = CreateHandler(db, out _);
+        var command = new BatchSubmitZipsCommand(session.Id, new BatchSubmitZipsRequest { Entries = [] }, BypassExamWindow: false);
+        
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ErrorCodeEnum.BusinessRuleViolation.ToString(), result.ErrorCode);
+        Assert.Contains("đã kết thúc", result.Message);
+    }
+
+    [Fact]
+    public async Task Handle_ReturnsError_WhenSessionHasNoTopics()
+    {
+        await using var db = CreateDbContext(nameof(Handle_ReturnsError_WhenSessionHasNoTopics));
+        var session = CreateSession("SESSION-NOTOPICS");
+        db.ExamSessions.Add(session);
+        await db.SaveChangesAsync();
+
+        var handler = CreateHandler(db, out _);
+        var command = new BatchSubmitZipsCommand(session.Id, new BatchSubmitZipsRequest { Entries = [] }, BypassExamWindow: true);
+        
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ErrorCodeEnum.BusinessRuleViolation.ToString(), result.ErrorCode);
+        Assert.Contains("chưa có topic", result.Message);
+    }
+
+    [Fact]
+    public async Task Handle_FailsEntry_WhenStudentAlreadySubmitted()
+    {
+        await using var db = CreateDbContext(nameof(Handle_FailsEntry_WhenStudentAlreadySubmitted));
+        var session = CreateSession("SESSION-DUP");
+        var topic = CreateTopic(session.Id, "Topic A", 1);
+        
+        db.ExamSessions.Add(session);
+        db.ExamTopics.Add(topic);
+        
+        var existingSubmission = new ExamSubmission 
+        { 
+            Id = Guid.NewGuid(), 
+            ExamSessionId = session.Id, 
+            StudentCode = "HE111111", 
+            StudentName = "DupStudent"
+        };
+        existingSubmission.InitializeEntity();
+        db.ExamSubmissions.Add(existingSubmission);
+        await db.SaveChangesAsync();
+
+        var handler = CreateHandler(db, out _);
+        var command = new BatchSubmitZipsCommand(
+            session.Id,
+            new BatchSubmitZipsRequest
+            {
+                Entries =
+                [
+                    new StudentZipEntry
+                    {
+                        ExamTopicId = topic.Id,
+                        StudentCode = "HE111111",
+                        StudentName = "DupStudent",
+                        Q1Zip = CreateZipFormFile("q1.zip"),
+                        Q2Zip = CreateZipFormFile("q2.zip")
+                    }
+                ]
+            },
+            BypassExamWindow: true);
+
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var row = Assert.Single(result.Data!.Results);
+        Assert.False(row.Success);
+        Assert.Contains("đã nộp bài", row.Error, StringComparison.OrdinalIgnoreCase);
+        // Ensure no extra submission was added
+        Assert.Equal(1, await db.ExamSubmissions.CountAsync());
     }
 
     private static BatchSubmitZipsCommandHandler CreateHandler(

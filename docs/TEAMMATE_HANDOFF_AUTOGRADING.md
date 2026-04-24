@@ -224,6 +224,7 @@ These APIs are already part of the current grading flow and should be considered
 - `POST /api/cms/grading/exam-sessions`
 - `POST /api/cms/grading/exam-sessions/{sessionId}/submissions/batch`
 - `POST /api/student/grading/exam-sessions/{sessionId}/submissions/batch`
+- `POST /api/cms/grading/submissions/{id}/upload-and-grade`
 
 ### Behavior already aligned with grading pipeline
 
@@ -380,20 +381,16 @@ Semester -> ExamSession -> ExamTopic -> ExamQuestion -> ExamTestCase
 
 ### Priority 3 - Job operation APIs
 
-These endpoints exist but are not fully implemented in the underlying job service:
+These endpoints are now fully implemented using `ExamGradingJobService.cs` and Hangfire:
 
 - `POST /api/cms/grading/exam-session-classes/{id}/start-batch-grading`
 - `PUT /api/cms/grading/submissions/{id}/files`
 - `POST /api/cms/grading/submissions/{id}/regrade`
+- `POST /api/cms/grading/submissions/{id}/upload-and-grade` (New: Upload and immediately trigger grading)
 
 Current related file:
 
 - [ExamGradingJobService.cs](../src/PRN232_G9_AutoGradingTool.Infrastructure/Services/ExamGradingJobService.cs)
-
-Current status:
-
-- methods still return `InvalidOperation`
-- real implementation is still pending
 
 ### Priority 4 - Query/dashboard APIs
 
@@ -471,9 +468,9 @@ Implemented and working:
 - session-end grading fan-out
 - topic-aware grading execution
 - result persistence
+- job operation APIs (start batch grading, replace file, trigger regrade, upload and grade)
 
 Still pending for full CQRS compliance:
 
 - most grading CRUD endpoints in `GradingController`
-- manual regrade and class batch grading implementation in job service
 - moving remaining direct admin service calls into command/query handlers

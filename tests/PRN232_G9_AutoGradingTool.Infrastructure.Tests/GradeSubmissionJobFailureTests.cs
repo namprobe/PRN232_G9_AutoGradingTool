@@ -179,6 +179,8 @@ public class GradeSubmissionJobFailureTests
     {
         public string ExtractZip(string zipPath, string? workingDirectory = null) => throw new NotSupportedException();
 
+        public string ResolveAppFolder(string questionLabel, string extractedDir) => throw new NotSupportedException();
+
         public System.Diagnostics.Process RunApp(string path, int port) => throw new NotSupportedException();
 
         public System.Diagnostics.Process RunNewman(string collectionJsonPath, string baseUrl, string? workingDirectory = null) => throw new NotSupportedException();
@@ -193,8 +195,6 @@ public class GradeSubmissionJobFailureTests
 
     private sealed class NoopResultParser : IGradingResultParser
     {
-        public (string? q1, string? q2) DetectProjects(string root) => (null, null);
-
         public IReadOnlyList<ResultDetail> ParseNewmanTestResults(string newmanJson) => [];
     }
 }

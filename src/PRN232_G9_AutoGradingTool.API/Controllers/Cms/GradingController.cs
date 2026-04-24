@@ -7,6 +7,7 @@ using PRN232_G9_AutoGradingTool.Application.Common.Extensions;
 using PRN232_G9_AutoGradingTool.Application.Common.Models;
 using PRN232_G9_AutoGradingTool.Application.Features.ExamSessions.Commands.CreateExamSession;
 using PRN232_G9_AutoGradingTool.Application.Features.Submissions.Commands.BatchSubmitZips;
+using PRN232_G9_AutoGradingTool.Application.Features.Submissions.Commands.UploadAndGradeSubmission;
 using PRN232_G9_AutoGradingTool.Application.Features.ExamGrading;
 using PRN232_G9_AutoGradingTool.Domain.Enums;
 using Swashbuckle.AspNetCore.Annotations;
@@ -439,6 +440,26 @@ public class GradingController : ControllerBase
     {
         var r = await _mediator.Send(new EgTriggerRegradeCommand(id), cancellationToken);
         return StatusCode(r.GetHttpStatusCode(), r);
+    }
+
+    [HttpPost("exam-topics/{topicId:guid}/upload-and-grade")]
+    [Consumes("multipart/form-data")]
+    [SwaggerOperation(
+        Summary = "Upload file zip theo topic + MSSV và trigger chấm ngay lập tức",
+        Description = "Tìm hoặc tạo submission theo (ExamTopicId → SessionId, StudentCode). " +
+                      "Upload zip cho câu hỏi (Q1/Q2) rồi enqueue GradingJob.",
+        OperationId = "Grading_UploadAndGrade")]
+    [ProducesResponseType(typeof(Result<UploadAndTriggerGradingResponseDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Result<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Result<object>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UploadAndGrade(
+        [FromRoute] Guid topicId,
+        [FromForm] UploadSubmissionAndGradeCommand command,
+        CancellationToken cancellationToken)
+    {
+        command.ExamTopicId = topicId;
+        var result = await _mediator.Send(command, cancellationToken);
+        return StatusCode(result.GetHttpStatusCode(), result);
     }
 }
 

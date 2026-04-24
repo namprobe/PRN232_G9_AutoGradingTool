@@ -27,4 +27,10 @@ public interface IExamGradingJobService
     Task<Result<TriggerRegradeResponseDto>> TriggerRegradeAsync(
         Guid submissionId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Enqueue a Hangfire job to grade the specified GradingJob.
+    /// Returns the Hangfire job ID.
+    /// </summary>
+    string EnqueueGradeSubmissionJob(Guid gradingJobId);
 }

@@ -33,8 +33,8 @@ public class AuthController : ControllerBase
     /// 
     ///     POST /api/cms/auth/login
     ///     {
-    ///        "email": "admin@example.com",
-    ///        "password": "Admin@123",
+    ///         "email": "admin@autogradingtool.com",
+    ///         "password": "Admin@123"
     ///     }
     ///     
     /// </remarks>
@@ -94,7 +94,7 @@ public class AuthController : ControllerBase
         var result = await _mediator.Send(command);
         return StatusCode(result.GetHttpStatusCode(), result);
     }
-    
+
     /// <summary>
     /// Get profile of the logged-in user in cms system
     /// </summary>

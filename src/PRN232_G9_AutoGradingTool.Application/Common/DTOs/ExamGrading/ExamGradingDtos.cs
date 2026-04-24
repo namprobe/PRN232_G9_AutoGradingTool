@@ -80,3 +80,9 @@ public record TriggerRegradeResponseDto(
     string Trigger,
     string JobStatus,
     string Message);
+
+/// <summary>Response khi upload và trigger grading thành công.</summary>
+public record UploadAndTriggerGradingResponseDto(
+    Guid SubmissionId,
+    Guid JobId,
+    string Status);
