@@ -237,47 +237,62 @@ public sealed class ZipExtractionHelper : IGradingProcessService, IGradingResult
     /// <returns>A read-only list of parsed test result details, one item per execution.</returns>
     public IReadOnlyList<ResultDetail> ParseNewmanTestResults(string newmanJson)
     {
+        // Be defensive in production grading runs: if Newman fails noisily or returns
+        // empty output, treat it as "no executions" so the job can complete with 0 score
+        // instead of crashing and keeping submission in Failed forever.
         if (string.IsNullOrWhiteSpace(newmanJson))
-            throw new ArgumentException("Newman JSON is required.", nameof(newmanJson));
+            return Array.Empty<ResultDetail>();
 
-        using var document = JsonDocument.Parse(newmanJson);
-        if (!document.RootElement.TryGetProperty("run", out var runElement) ||
-            !runElement.TryGetProperty("executions", out var executionsElement) ||
-            executionsElement.ValueKind != JsonValueKind.Array)
+        JsonDocument document;
+        try
         {
-            throw new InvalidDataException("Newman JSON report does not contain run.executions.");
+            document = JsonDocument.Parse(newmanJson);
+        }
+        catch
+        {
+            return Array.Empty<ResultDetail>();
         }
 
-        var results = new List<ResultDetail>();
-        foreach (var execution in executionsElement.EnumerateArray())
+        using (document)
         {
-            var itemName = TryGetString(execution, "item", "name") ?? "Unknown testcase";
-            var responseTime = TryGetInt32(execution, "response", "responseTime");
+            if (!document.RootElement.TryGetProperty("run", out var runElement) ||
+                !runElement.TryGetProperty("executions", out var executionsElement) ||
+                executionsElement.ValueKind != JsonValueKind.Array)
+            {
+                return Array.Empty<ResultDetail>();
+            }
 
-            var assertions = TryGetArray(execution, "assertions");
-            var assertionEntries = assertions?.EnumerateArray().ToList() ?? new List<JsonElement>();
-            var passed = assertionEntries.Count == 0 || assertionEntries.All(assertion =>
-                !assertion.TryGetProperty("success", out var successElement) || successElement.ValueKind == JsonValueKind.True);
+            var results = new List<ResultDetail>();
+            foreach (var execution in executionsElement.EnumerateArray())
+            {
+                var itemName = TryGetString(execution, "item", "name") ?? "Unknown testcase";
+                var responseTime = TryGetInt32(execution, "response", "responseTime");
 
-            var failures = assertionEntries
-                .Where(assertion => assertion.TryGetProperty("success", out var successElement) && successElement.ValueKind == JsonValueKind.False)
-                .Select(assertion => TryGetString(assertion, "error", "message")
-                    ?? TryGetString(assertion, "error", "name")
-                    ?? TryGetString(assertion, "assertion")
-                    ?? "Assertion failed")
-                .ToList();
+                var assertions = TryGetArray(execution, "assertions");
+                var assertionEntries = assertions?.EnumerateArray().ToList() ?? new List<JsonElement>();
+                var passed = assertionEntries.Count == 0 || assertionEntries.All(assertion =>
+                    !assertion.TryGetProperty("success", out var successElement) || successElement.ValueKind == JsonValueKind.True);
 
-            var rawOutputJson = execution.GetRawText();
-            results.Add(new ResultDetail(
-                itemName,
-                passed,
-                passed ? 1d : 0d,
-                responseTime ?? 0,
-                failures.Count == 0 ? string.Empty : string.Join("; ", failures),
-                rawOutputJson));
+                var failures = assertionEntries
+                    .Where(assertion => assertion.TryGetProperty("success", out var successElement) && successElement.ValueKind == JsonValueKind.False)
+                    .Select(assertion => TryGetString(assertion, "error", "message")
+                        ?? TryGetString(assertion, "error", "name")
+                        ?? TryGetString(assertion, "assertion")
+                        ?? "Assertion failed")
+                    .ToList();
+
+                var rawOutputJson = execution.GetRawText();
+                results.Add(new ResultDetail(
+                    itemName,
+                    passed,
+                    passed ? 1d : 0d,
+                    responseTime ?? 0,
+                    failures.Count == 0 ? string.Empty : string.Join("; ", failures),
+                    rawOutputJson));
+            }
+
+            return results;
         }
-
-        return results;
     }
 
     /// <summary>

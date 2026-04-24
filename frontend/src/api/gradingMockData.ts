@@ -688,8 +688,51 @@ export function mockCreateSubmission(
         originalFileName: "q2.zip",
       },
     ],
-    questionScores: [],
-    testCaseScores: [],
+    questionScores: [
+      {
+        examQuestionId: crypto.randomUUID(),
+        questionLabel: "Q1",
+        score: 4.5,
+        maxScore: 5,
+        summary: "Pass phần lớn testcase",
+      },
+      {
+        examQuestionId: crypto.randomUUID(),
+        questionLabel: "Q2",
+        score: 4,
+        maxScore: 5,
+        summary: "Thiếu 1 testcase body",
+      },
+    ],
+    testCaseScores: [
+      {
+        examTestCaseId: crypto.randomUUID(),
+        questionLabel: "Q1",
+        testCaseName: "TC-Q1-01",
+        pointsEarned: 2.5,
+        maxPoints: 2.5,
+        outcome: "Pass",
+        message: null,
+      },
+      {
+        examTestCaseId: crypto.randomUUID(),
+        questionLabel: "Q1",
+        testCaseName: "TC-Q1-02",
+        pointsEarned: 2,
+        maxPoints: 2.5,
+        outcome: "Fail",
+        message: "Expected body does not contain required field.",
+      },
+      {
+        examTestCaseId: crypto.randomUUID(),
+        questionLabel: "Q2",
+        testCaseName: "TC-Q2-01",
+        pointsEarned: 4,
+        maxPoints: 5,
+        outcome: "Fail",
+        message: "Status code mismatch for one assertion.",
+      },
+    ],
   };
   const listItem: ExamSubmissionListItem = {
     id,

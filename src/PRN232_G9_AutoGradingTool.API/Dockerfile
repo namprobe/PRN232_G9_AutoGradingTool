@@ -39,7 +39,8 @@ WORKDIR /app
 
 # Install small tools used by entrypoint
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends curl netcat-openbsd \
+  && apt-get install -y --no-install-recommends curl netcat-openbsd nodejs npm \
+  && npm install -g newman \
   && rm -rf /var/lib/apt/lists/*
 
 COPY --from=publish /app/publish .
