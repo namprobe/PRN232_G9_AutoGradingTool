@@ -8,6 +8,7 @@ import type {
   ExamSessionListItem,
   ExamSubmissionDetail,
   ExamSubmissionListItem,
+  BatchSubmitZipsResponse,
   SemesterListItem,
   TriggerRegradeResponse,
 } from "./gradingTypes";
@@ -118,15 +119,38 @@ export async function createSubmissionZip(
   if (useApiMock()) {
     await delay(400);
     const sessionId = String(formData.get("examSessionId") ?? "");
-    const studentCode = String(formData.get("studentCode") ?? "");
-    const sn = formData.get("studentName");
+    const studentCode = String(formData.get("entries[0].studentCode") ?? "");
+    const sn = formData.get("entries[0].studentName");
     return mockCreateSubmission(sessionId, studentCode, sn != null ? String(sn) : undefined);
   }
-  return fetchAsApiResult<string>(`${baseUrl()}/api/cms/grading/submissions`, {
-    method: "POST",
-    body: formData,
-    token,
-  });
+
+  const batchResult = await fetchAsApiResult<BatchSubmitZipsResponse>(
+    `${baseUrl()}/api/cms/grading/exam-sessions/${encodeURIComponent(String(formData.get("examSessionId") ?? ""))}/submissions/batch`,
+    {
+      method: "POST",
+      body: formData,
+      token,
+    }
+  );
+
+  if (!batchResult.isSuccess || !batchResult.data) {
+    return { isSuccess: false, message: batchResult.message, errors: batchResult.errors, errorCode: batchResult.errorCode };
+  }
+
+  const firstOk = batchResult.data.results.find((x) => x.success && x.submissionId);
+  if (!firstOk?.submissionId) {
+    return {
+      isSuccess: false,
+      message: batchResult.data.results.find((x) => !x.success)?.error ?? batchResult.message ?? "Không tạo được bài nộp.",
+      errorCode: "BusinessRuleViolation",
+    };
+  }
+
+  return {
+    isSuccess: true,
+    message: batchResult.message,
+    data: firstOk.submissionId,
+  };
 }
 
 export async function replaceSubmissionFile(

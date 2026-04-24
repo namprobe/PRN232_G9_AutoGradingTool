@@ -3,8 +3,8 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { studentSubmitZip } from "../api/gradingCmsApi";
-import { createSubmissionZip, getExamSession, listExamSessionClasses } from "../api/gradingApi";
-import type { ExamSessionClassListItem } from "../api/gradingTypes";
+import { createSubmissionZip, getExamSession } from "../api/gradingApi";
+import type { ExamTopicDetail } from "../api/gradingTypes";
 import { useApiMock } from "../config/env";
 import { WorkflowBreadcrumb, crumbsForUpload } from "../components/WorkflowBreadcrumb";
 import { examSessionDetailPath, examSessionSubmissionsPath } from "../lib/workflowRoutes";
@@ -29,9 +29,8 @@ export function UploadSubmissionsPage() {
   const [msg, setMsg] = useState<{ type: "ok" | "err" | "info"; text: string } | null>(null);
   const [lastOk, setLastOk] = useState<{ submissionId: string; sessionId: string } | null>(null);
   const [sending, setSending] = useState(false);
-  const [sessionClasses, setSessionClasses] = useState<ExamSessionClassListItem[]>([]);
-  /** Khi gắn bài với lớp trong ca (POST multipart `examSessionClassId`, optional) */
-  const [examSessionClassId, setExamSessionClassId] = useState("");
+  const [sessionTopics, setSessionTopics] = useState<ExamTopicDetail[]>([]);
+  const [examTopicId, setExamTopicId] = useState("");
 
   useEffect(() => {
     if (!routeSessionId) {
@@ -48,19 +47,15 @@ export function UploadSubmissionsPage() {
         setMetaErr(meta.message ?? "Không tải được ca thi.");
         setSessionCode("");
         setSessionTitle("");
+        setSessionTopics([]);
+        setExamTopicId("");
         return;
       }
       setSessionCode(meta.data.code);
       setSessionTitle(meta.data.title);
-      const cls = await listExamSessionClasses(token, routeSessionId);
-      if (cancelled) return;
-      if (cls.isSuccess && cls.data) {
-        setSessionClasses(cls.data);
-        setExamSessionClassId("");
-      } else {
-        setSessionClasses([]);
-        setExamSessionClassId("");
-      }
+      const topics = meta.data.topics ?? [];
+      setSessionTopics(topics);
+      setExamTopicId(topics[0]?.id ?? "");
     })();
     return () => {
       cancelled = true;
@@ -100,16 +95,20 @@ export function UploadSubmissionsPage() {
       setMsg({ type: "err", text: "Thiếu thông tin ca thi — hãy mở lại trang từ danh sách ca." });
       return;
     }
+    if (!examTopicId.trim()) {
+      setMsg({ type: "err", text: "Vui lòng chọn topic để nộp bài." });
+      return;
+    }
     setSending(true);
     setMsg(null);
     setLastOk(null);
     const fd = new FormData();
     fd.append("examSessionId", examSessionId);
-    fd.append("studentCode", code);
-    if (studentName.trim()) fd.append("studentName", studentName.trim());
-    if (examSessionClassId.trim()) fd.append("examSessionClassId", examSessionClassId.trim());
-    fd.append("q1Zip", q1);
-    fd.append("q2Zip", q2);
+    fd.append("entries[0].examTopicId", examTopicId.trim());
+    fd.append("entries[0].studentCode", code);
+    if (studentName.trim()) fd.append("entries[0].studentName", studentName.trim());
+    fd.append("entries[0].q1Zip", q1);
+    fd.append("entries[0].q2Zip", q2);
 
     const r = useStudentApi ? await studentSubmitZip(token, fd) : await createSubmissionZip(token, fd);
     setSending(false);
@@ -198,26 +197,24 @@ export function UploadSubmissionsPage() {
             </label>
           </div>
         </fieldset>
-        {sessionClasses.length > 0 ? (
+        {sessionTopics.length > 0 ? (
           <div className="ag-field" style={{ maxWidth: 640 }}>
-            <label className="ag-label" htmlFor="exam-session-class">
-              Lớp thi trong ca <span className="ag-table__muted">(không bắt buộc — gửi kèm examSessionClassId)</span>
+            <label className="ag-label" htmlFor="exam-topic">
+              Topic nộp bài <span className="ag-table__muted">(bắt buộc)</span>
             </label>
-            <select
-              id="exam-session-class"
-              className="ag-input"
-              value={examSessionClassId}
-              onChange={(e) => setExamSessionClassId(e.target.value)}
-            >
-              <option value="">— Không chọn (không gắn lớp) —</option>
-              {sessionClasses.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.examClassCode} — {c.examClassName}
+            <select id="exam-topic" className="ag-input" value={examTopicId} onChange={(e) => setExamTopicId(e.target.value)}>
+              {sessionTopics.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.title}
                 </option>
               ))}
             </select>
           </div>
-        ) : null}
+        ) : (
+          <div className="ag-alert ag-alert--err" role="alert">
+            Ca thi chưa có topic nên chưa thể nộp batch.
+          </div>
+        )}
 
         <div className="ag-upload-grid" style={{ marginTop: 8 }}>
           <div className="ag-field">
@@ -316,7 +313,7 @@ export function UploadSubmissionsPage() {
           <Link to={examSessionSubmissionsPath(routeSessionId)} className="ag-btn ag-btn--ghost">
             Bài nộp
           </Link>
-          <button type="submit" className="ag-btn ag-btn--primary ag-btn--lg" disabled={!q1 || !q2 || sending}>
+          <button type="submit" className="ag-btn ag-btn--primary ag-btn--lg" disabled={!q1 || !q2 || !examTopicId || sending}>
             {sending ? "Đang gửi…" : "Gửi bài"}
           </button>
         </div>

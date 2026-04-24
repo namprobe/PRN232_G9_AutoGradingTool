@@ -1092,27 +1092,154 @@ public sealed class EgDeletePackAssetCommandHandler(
 }
 
 public record EgGetExamSessionQuery(Guid Id) : IRequest<Result<ExamSessionDetailDto>>;
-public sealed class EgGetExamSessionQueryHandler(IExamGradingAppService grading)
+public sealed class EgGetExamSessionQueryHandler(IUnitOfWork unitOfWork)
     : IRequestHandler<EgGetExamSessionQuery, Result<ExamSessionDetailDto>>
 {
-    public Task<Result<ExamSessionDetailDto>> Handle(EgGetExamSessionQuery request, CancellationToken cancellationToken)
-        => grading.GetExamSessionAsync(request.Id, cancellationToken);
+    public async Task<Result<ExamSessionDetailDto>> Handle(EgGetExamSessionQuery request, CancellationToken cancellationToken)
+    {
+        var session = await unitOfWork.Repository<ExamSession>()
+            .GetQueryable()
+            .AsNoTracking()
+            .Include(x => x.Semester)
+            .Include(x => x.Topics).ThenInclude(t => t.Questions).ThenInclude(q => q.TestCases)
+            .FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken);
+
+        if (session == null)
+            return Result<ExamSessionDetailDto>.Failure("Không tìm thấy ca thi.", ErrorCodeEnum.NotFound);
+
+        var topics = session.Topics
+            .OrderBy(t => t.SortOrder)
+            .Select(t => new ExamTopicDetailDto(
+                t.Id,
+                t.Title,
+                t.SortOrder,
+                t.Questions
+                    .OrderBy(q => q.Label)
+                    .Select(q => new ExamQuestionDetailDto(
+                        q.Id,
+                        q.Label,
+                        q.Title,
+                        q.MaxScore,
+                        q.TestCases
+                            .OrderBy(tc => tc.SortOrder)
+                            .Select(tc => new ExamTestCaseDetailDto(tc.Id, tc.Name, tc.MaxPoints, tc.SortOrder))
+                            .ToList()))
+                    .ToList()))
+            .ToList();
+
+        var dto = new ExamSessionDetailDto(
+            session.Id,
+            session.Code,
+            session.Title,
+            session.SemesterId,
+            session.Semester.Code,
+            session.StartsAtUtc,
+            session.ExamDurationMinutes,
+            session.EndsAtUtc,
+            session.DeferredClassGrading,
+            topics);
+
+        return Result<ExamSessionDetailDto>.Success(dto, "OK");
+    }
 }
 
 public record EgListSubmissionsQuery(Guid ExamSessionId, Guid? ExamSessionClassId) : IRequest<Result<List<ExamSubmissionListItemDto>>>;
-public sealed class EgListSubmissionsQueryHandler(IExamGradingAppService grading)
+public sealed class EgListSubmissionsQueryHandler(IUnitOfWork unitOfWork)
     : IRequestHandler<EgListSubmissionsQuery, Result<List<ExamSubmissionListItemDto>>>
 {
-    public Task<Result<List<ExamSubmissionListItemDto>>> Handle(EgListSubmissionsQuery request, CancellationToken cancellationToken)
-        => grading.ListSubmissionsAsync(request.ExamSessionId, request.ExamSessionClassId, cancellationToken);
+    public async Task<Result<List<ExamSubmissionListItemDto>>> Handle(EgListSubmissionsQuery request, CancellationToken cancellationToken)
+    {
+        if (!await unitOfWork.Repository<ExamSession>().AnyAsync(x => x.Id == request.ExamSessionId, cancellationToken))
+            return Result<List<ExamSubmissionListItemDto>>.Failure("Không tìm thấy ca thi.", ErrorCodeEnum.NotFound);
+
+        var query = unitOfWork.Repository<ExamSubmission>()
+            .GetQueryable()
+            .AsNoTracking()
+            .Where(x => x.ExamSessionId == request.ExamSessionId);
+
+        if (request.ExamSessionClassId.HasValue)
+            query = query.Where(x => x.ExamSessionClassId == request.ExamSessionClassId.Value);
+
+        var rows = await query
+            .OrderByDescending(x => x.SubmittedAtUtc)
+            .Select(x => new ExamSubmissionListItemDto(
+                x.Id,
+                x.ExamSessionId,
+                x.ExamSessionClassId,
+                x.ExamSessionClass != null ? x.ExamSessionClass.ExamClass.Code : null,
+                x.StudentCode,
+                x.StudentName,
+                x.WorkflowStatus.ToString(),
+                x.SubmittedAtUtc,
+                x.TotalScore))
+            .ToListAsync(cancellationToken);
+
+        return Result<List<ExamSubmissionListItemDto>>.Success(rows, "OK");
+    }
 }
 
 public record EgGetSubmissionQuery(Guid Id) : IRequest<Result<ExamSubmissionDetailDto>>;
-public sealed class EgGetSubmissionQueryHandler(IExamGradingAppService grading)
+public sealed class EgGetSubmissionQueryHandler(IUnitOfWork unitOfWork)
     : IRequestHandler<EgGetSubmissionQuery, Result<ExamSubmissionDetailDto>>
 {
-    public Task<Result<ExamSubmissionDetailDto>> Handle(EgGetSubmissionQuery request, CancellationToken cancellationToken)
-        => grading.GetSubmissionAsync(request.Id, cancellationToken);
+    public async Task<Result<ExamSubmissionDetailDto>> Handle(EgGetSubmissionQuery request, CancellationToken cancellationToken)
+    {
+        var submission = await unitOfWork.Repository<ExamSubmission>()
+            .GetQueryable()
+            .AsNoTracking()
+            .Include(x => x.ExamSession)
+            .Include(x => x.ExamSessionClass).ThenInclude(c => c!.ExamClass)
+            .Include(x => x.SubmissionFiles)
+            .Include(x => x.QuestionScores).ThenInclude(qs => qs.ExamQuestion)
+            .Include(x => x.Result).ThenInclude(r => r!.Details).ThenInclude(d => d.TestCase)
+            .FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken);
+
+        if (submission == null)
+            return Result<ExamSubmissionDetailDto>.Failure("Không tìm thấy bài nộp.", ErrorCodeEnum.NotFound);
+
+        var questionScores = submission.QuestionScores
+            .OrderBy(x => x.ExamQuestion.Label)
+            .Select(x => new ExamQuestionScoreDto(
+                x.ExamQuestionId,
+                x.ExamQuestion.Label,
+                x.Score,
+                x.MaxScore,
+                x.Summary))
+            .ToList();
+
+        var resultDetails = submission.Result?.Details
+            .OrderBy(x => x.TestCase.SortOrder)
+            .Select(x => new ResultDetail(
+                x.TestCase.Name,
+                x.Passed,
+                x.Score,
+                x.ResponseTime,
+                x.ErrorMessage,
+                null))
+            .ToList() ?? new List<ResultDetail>();
+
+        var files = submission.SubmissionFiles
+            .OrderBy(x => x.QuestionLabel)
+            .Select(x => new SubmissionFileDto(x.QuestionLabel, x.StorageRelativePath, x.OriginalFileName))
+            .ToList();
+
+        var dto = new ExamSubmissionDetailDto(
+            submission.Id,
+            submission.ExamSessionId,
+            submission.ExamSession.Code,
+            submission.ExamSessionClassId,
+            submission.ExamSessionClass?.ExamClass.Code,
+            submission.StudentCode,
+            submission.StudentName,
+            submission.WorkflowStatus.ToString(),
+            submission.SubmittedAtUtc,
+            submission.TotalScore,
+            files,
+            questionScores,
+            resultDetails);
+
+        return Result<ExamSubmissionDetailDto>.Success(dto, "OK");
+    }
 }
 
 public record EgCreateSubmissionCommand(
