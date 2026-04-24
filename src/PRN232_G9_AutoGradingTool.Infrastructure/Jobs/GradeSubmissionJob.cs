@@ -419,16 +419,45 @@ public class GradeSubmissionJob
 
     private string ResolveAppFolder(string questionLabel, string extractedDir)
     {
-        var directMatch = Directory
+        // Prefer strict naming convention first (Q1_*/Q2_*), then gracefully
+        // fallback to any runnable publish folder inside the extracted tree.
+        var allDirs = Directory
             .GetDirectories(extractedDir, "*", SearchOption.AllDirectories)
-            .FirstOrDefault(directory =>
-                Path.GetFileName(directory).StartsWith($"{questionLabel}_", StringComparison.OrdinalIgnoreCase));
+            .ToList();
 
-        if (directMatch is not null)
-            return directMatch;
+        var namedMatch = allDirs.FirstOrDefault(directory =>
+            Path.GetFileName(directory).StartsWith($"{questionLabel}_", StringComparison.OrdinalIgnoreCase));
+        if (namedMatch is not null)
+            return namedMatch;
+
+        if (IsRunnablePublishedFolder(extractedDir))
+            return extractedDir;
+
+        var runnableCandidate = allDirs
+            .Where(IsRunnablePublishedFolder)
+            .OrderByDescending(d => d.Length)
+            .FirstOrDefault();
+        if (runnableCandidate is not null)
+            return runnableCandidate;
 
         throw new InvalidOperationException(
             $"Could not find published app folder for {questionLabel} in {extractedDir}.");
+    }
+
+    private static bool IsRunnablePublishedFolder(string directory)
+    {
+        if (!Directory.Exists(directory))
+            return false;
+
+        var dlls = Directory.GetFiles(directory, "*.dll", SearchOption.TopDirectoryOnly)
+            .Where(file => !Path.GetFileNameWithoutExtension(file).EndsWith(".resources", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        if (!dlls.Any())
+            return false;
+
+        // A published .NET app folder always has a runtimeconfig.json.
+        return dlls.Any(dll =>
+            File.Exists(Path.ChangeExtension(dll, ".runtimeconfig.json")));
     }
 
     private ComputedSubmissionResult BuildComputedSubmissionResult(
