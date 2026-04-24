@@ -76,34 +76,58 @@ public sealed class ZipExtractionHelper : IGradingProcessService, IGradingResult
     }
 
     /// <summary>
-    /// Detects the extracted Q1 and Q2 project folders by scanning the top-level
-    /// directories inside the submission root.
+    /// Resolves the published app folder for a specific question within the extracted directory.
     /// <para>
-    /// The function expects the archive to be extracted into a structure where project
-    /// folders are named with prefixes such as <c>Q1_</c> and <c>Q2_</c>. It returns
-    /// the first matching folder for each prefix, allowing the grading pipeline to
-    /// locate the two question projects without hard-coding exact folder names.
+    /// Prefers a strict naming convention first (e.g., Q1_*/Q2_*), then gracefully
+    /// falls back to any runnable publish folder (containing .dll and appsettings.json)
+    /// inside the extracted tree.
     /// </para>
     /// </summary>
-    /// <param name="root">Root directory that contains the extracted submission contents.</param>
-    /// <returns>A tuple containing the detected Q1 and Q2 folder paths, or null values when a folder is missing.</returns>
-    public (string? q1, string? q2) DetectProjects(string root)
+    /// <param name="questionLabel">The label of the question (e.g., Q1 or Q2).</param>
+    /// <param name="extractedDir">The root folder where the submission was extracted.</param>
+    /// <returns>The path to the resolved published application folder.</returns>
+    public string ResolveAppFolder(string questionLabel, string extractedDir)
     {
-        if (string.IsNullOrWhiteSpace(root))
-            throw new ArgumentException("Root path is required.", nameof(root));
+        if (string.IsNullOrWhiteSpace(extractedDir) || !Directory.Exists(extractedDir))
+            throw new DirectoryNotFoundException($"Extracted directory was not found: {extractedDir}");
 
-        if (!Directory.Exists(root))
-            throw new DirectoryNotFoundException($"Root directory was not found: {root}");
+        var allDirs = Directory
+            .GetDirectories(extractedDir, "*", SearchOption.AllDirectories)
+            .ToList();
 
-        var directories = Directory.GetDirectories(root);
+        var namedMatch = allDirs.FirstOrDefault(directory =>
+            Path.GetFileName(directory).StartsWith($"{questionLabel}_", StringComparison.OrdinalIgnoreCase));
+        if (namedMatch is not null)
+            return namedMatch;
 
-        var q1 = directories.FirstOrDefault(directory =>
-            Path.GetFileName(directory).StartsWith("Q1_", StringComparison.OrdinalIgnoreCase));
+        if (IsRunnablePublishedFolder(extractedDir))
+            return extractedDir;
 
-        var q2 = directories.FirstOrDefault(directory =>
-            Path.GetFileName(directory).StartsWith("Q2_", StringComparison.OrdinalIgnoreCase));
+        var runnableCandidate = allDirs
+            .Where(IsRunnablePublishedFolder)
+            .OrderByDescending(d => d.Length)
+            .FirstOrDefault();
+        if (runnableCandidate is not null)
+            return runnableCandidate;
 
-        return (q1, q2);
+        throw new InvalidOperationException(
+            $"Could not find published app folder for {questionLabel} in {extractedDir}.");
+    }
+
+    private static bool IsRunnablePublishedFolder(string directory)
+    {
+        if (!Directory.Exists(directory))
+            return false;
+
+        var dlls = Directory.GetFiles(directory, "*.dll", SearchOption.TopDirectoryOnly)
+            .Where(file => !Path.GetFileNameWithoutExtension(file).EndsWith(".resources", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        if (!dlls.Any())
+            return false;
+
+        // A published .NET app folder always has a runtimeconfig.json.
+        return dlls.Any(dll =>
+            File.Exists(Path.ChangeExtension(dll, ".runtimeconfig.json")));
     }
 
     /// <summary>

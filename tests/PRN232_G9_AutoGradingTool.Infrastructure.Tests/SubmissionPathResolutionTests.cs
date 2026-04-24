@@ -39,10 +39,10 @@ public class SubmissionPathResolutionTests
     {
         var ex = Assert.Throws<InvalidOperationException>(() =>
             SubmissionFilePathParser.Parse(
-                "uploads/SESSION-02/HE186501_Alice/Q1/solution.zip",
+                "uploads/SESSION-02/HE186501_Alice/solution.zip",
                 "SESSION-02"));
 
-        Assert.Contains("must follow", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("must contain", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

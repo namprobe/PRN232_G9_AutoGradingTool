@@ -114,7 +114,7 @@ public class GradeSubmissionJob
                     GradingJobLogLevel.Info,
                     $"Extracted {label} from {resolvedFile.SubmissionFile.StorageRelativePath} to {extractedDir}.");
 
-                var appFolder = ResolveAppFolder(label, extractedDir);
+                var appFolder = _processSvc.ResolveAppFolder(label, extractedDir);
                 appFolders[label] = appFolder;
 
                 await AddLogAsync(
@@ -417,48 +417,7 @@ public class GradeSubmissionJob
         }
     }
 
-    private string ResolveAppFolder(string questionLabel, string extractedDir)
-    {
-        // Prefer strict naming convention first (Q1_*/Q2_*), then gracefully
-        // fallback to any runnable publish folder inside the extracted tree.
-        var allDirs = Directory
-            .GetDirectories(extractedDir, "*", SearchOption.AllDirectories)
-            .ToList();
 
-        var namedMatch = allDirs.FirstOrDefault(directory =>
-            Path.GetFileName(directory).StartsWith($"{questionLabel}_", StringComparison.OrdinalIgnoreCase));
-        if (namedMatch is not null)
-            return namedMatch;
-
-        if (IsRunnablePublishedFolder(extractedDir))
-            return extractedDir;
-
-        var runnableCandidate = allDirs
-            .Where(IsRunnablePublishedFolder)
-            .OrderByDescending(d => d.Length)
-            .FirstOrDefault();
-        if (runnableCandidate is not null)
-            return runnableCandidate;
-
-        throw new InvalidOperationException(
-            $"Could not find published app folder for {questionLabel} in {extractedDir}.");
-    }
-
-    private static bool IsRunnablePublishedFolder(string directory)
-    {
-        if (!Directory.Exists(directory))
-            return false;
-
-        var dlls = Directory.GetFiles(directory, "*.dll", SearchOption.TopDirectoryOnly)
-            .Where(file => !Path.GetFileNameWithoutExtension(file).EndsWith(".resources", StringComparison.OrdinalIgnoreCase))
-            .ToList();
-        if (!dlls.Any())
-            return false;
-
-        // A published .NET app folder always has a runtimeconfig.json.
-        return dlls.Any(dll =>
-            File.Exists(Path.ChangeExtension(dll, ".runtimeconfig.json")));
-    }
 
     private ComputedSubmissionResult BuildComputedSubmissionResult(
         ExamTopic topic,
@@ -737,3 +696,6 @@ public class GradeSubmissionJob
         int DetailResponseTime,
         string DetailErrorMessage);
 }
+
+
+
